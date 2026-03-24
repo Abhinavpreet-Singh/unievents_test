@@ -87,7 +87,6 @@ export const verifyPass = async (req: Request, res: Response) => {
 		});
 	}
 };
-
 export const getPassesByEvent = async (req: Request, res: Response) => {
 	const eventId = req.params.eventId as string;
 	try {
