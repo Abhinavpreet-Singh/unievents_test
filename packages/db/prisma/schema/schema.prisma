@@ -92,7 +92,6 @@ model User {
 
   accounts      Account[]
   sessions      Session[]
-  verifications Verification[]
   attendees     Attendee[]
   hostedEvents  Event[]        @relation("hostedEvents")
 }
@@ -179,6 +178,7 @@ model Event {
   updatedAt   DateTime        @updatedAt
 
   ticketTiers TicketTier[]
+  tickets     Ticket[]
   passes      Pass[]
   attendees   Attendee[]
   orders      Order[]
