@@ -10,7 +10,6 @@
 	"dependencies": {
 		"@voltaze/env": "workspace:*",
 		"@voltaze/ui": "workspace:*",
-		"@neondatabase/auth": "^0.2.0-beta.1",
 		"@prisma/client": "catalog:",
 		"babel-plugin-react-compiler": "^1.0.0",
 		"dotenv": "catalog:",

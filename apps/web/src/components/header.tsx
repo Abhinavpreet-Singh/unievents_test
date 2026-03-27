@@ -1,5 +1,4 @@
 "use client";
-import { UserButton } from "@neondatabase/auth/react/ui";
 import Link from "next/link";
 
 import { ModeToggle } from "./mode-toggle";
@@ -8,7 +7,6 @@ export default function Header() {
 	const links = [
 		{ to: "/", label: "Home" },
 		{ to: "/dashboard", label: "Dashboard" },
-		{ to: "/auth/sign-in", label: "Sign In" },
 	] as const;
 
 	return (
@@ -24,7 +22,6 @@ export default function Header() {
 					})}
 				</nav>
 				<div className="flex items-center gap-2">
-					<UserButton />
 					<ModeToggle />
 				</div>
 			</div>

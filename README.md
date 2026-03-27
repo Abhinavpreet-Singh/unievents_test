@@ -25,13 +25,11 @@ First, install the dependencies:
 bun install
 ```
 
-Create environment variables for web auth and server/database before running the app:
+Create environment variables for web and server/database before running the app:
 
 ```bash
 # apps/web/.env
 NEXT_PUBLIC_SERVER_URL=http://localhost:3000
-NEON_AUTH_BASE_URL=https://your-neon-auth-url.neon.tech
-NEON_AUTH_COOKIE_SECRET=your-secret-at-least-32-characters-long
 
 # apps/server/.env
 DATABASE_URL=postgresql://...
@@ -59,20 +57,6 @@ bun run dev
 
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
 The API is running at [http://localhost:3000](http://localhost:3000).
-Auth UI is available at [http://localhost:3001/auth/sign-in](http://localhost:3001/auth/sign-in).
-Protected routes are enabled via middleware for `/dashboard`, `/account/*`, and `/organization/*`.
-
-## Google OAuth Setup (Neon Auth)
-
-To use Google sign-in, configure the provider in the Neon Console:
-
-1. Open your Neon project -> Auth -> Providers -> Google.
-2. Create OAuth credentials in Google Cloud Console (Web application).
-3. Set the Neon-provided callback URL as an authorized redirect URI in Google.
-4. Paste the Google Client ID and Client Secret into Neon Auth provider settings.
-5. Ensure your app origin (for local dev: `http://localhost:3001`) is allowed in Google OAuth settings.
-
-After this, the `/auth/sign-in` page will display a Google sign-in option.
 
 ## UI Customization
 
