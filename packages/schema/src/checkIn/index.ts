@@ -28,8 +28,8 @@ export const checkInFilterSchema = z.object({
 	method: z.enum(["QR_SCAN", "MANUAL"]).optional(),
 	dateFrom: z.coerce.date().optional(),
 	dateTo: z.coerce.date().optional(),
-	page: z.number().int().positive().default(1),
-	limit: z.number().int().positive().max(100).default(20),
+	page: z.coerce.number().int().positive().default(1),
+	limit: z.coerce.number().int().positive().max(100).default(20),
 	sortBy: z.enum(["timestamp"]).default("timestamp"),
 	sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });

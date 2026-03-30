@@ -32,8 +32,8 @@ export const ticketFilterSchema = z.object({
 	orderId: z.string().cuid().optional(),
 	eventId: z.string().cuid().optional(),
 	tierId: z.string().cuid().optional(),
-	page: z.number().int().positive().default(1),
-	limit: z.number().int().positive().max(100).default(20),
+	page: z.coerce.number().int().positive().default(1),
+	limit: z.coerce.number().int().positive().max(100).default(20),
 	sortBy: z.enum(["createdAt"]).default("createdAt"),
 	sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });

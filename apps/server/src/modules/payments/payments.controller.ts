@@ -1,6 +1,7 @@
 import {
 	createPaymentSchema,
 	idParamSchema,
+	paymentFilterSchema,
 	razorpayWebhookSchema,
 	updatePaymentSchema,
 } from "@voltaze/schema";
@@ -9,8 +10,9 @@ import type { Request, Response } from "express";
 import { paymentsService } from "./payments.service";
 
 export class PaymentsController {
-	async list(_req: Request, res: Response) {
-		const payments = await paymentsService.list();
+	async list(req: Request, res: Response) {
+		const query = paymentFilterSchema.parse(req.query);
+		const payments = await paymentsService.list(query);
 		res.status(200).json(payments);
 	}
 

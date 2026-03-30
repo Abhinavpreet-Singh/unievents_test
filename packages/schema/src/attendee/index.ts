@@ -46,8 +46,8 @@ export const attendeeFilterSchema = z.object({
 	eventId: z.string().cuid().optional(),
 	userId: z.string().cuid().optional(),
 	search: z.string().optional(),
-	page: z.number().int().positive().default(1),
-	limit: z.number().int().positive().max(100).default(20),
+	page: z.coerce.number().int().positive().default(1),
+	limit: z.coerce.number().int().positive().max(100).default(20),
 	sortBy: z.enum(["createdAt", "name", "email"]).default("createdAt"),
 	sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });

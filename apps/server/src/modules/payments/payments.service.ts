@@ -1,6 +1,7 @@
 import { type Prisma, prisma } from "@voltaze/db";
 import type {
 	CreatePaymentInput,
+	PaymentFilterInput,
 	RazorpayWebhookInput,
 	UpdatePaymentInput,
 } from "@voltaze/schema";
@@ -8,10 +9,18 @@ import type {
 import { BadRequestError, NotFoundError } from "@/common/exceptions/app-error";
 
 export class PaymentsService {
-	async list() {
+	async list(input: PaymentFilterInput) {
+		const { page, limit, sortBy, sortOrder, ...filters } = input;
+		const skip = (page - 1) * limit;
+
 		return prisma.payment.findMany({
-			where: { deletedAt: null },
-			orderBy: { createdAt: "desc" },
+			where: {
+				...filters,
+				deletedAt: null,
+			},
+			orderBy: { [sortBy]: sortOrder },
+			skip,
+			take: limit,
 		});
 	}
 

@@ -1,6 +1,7 @@
 import {
 	createPaymentSchema,
 	idParamSchema,
+	paymentFilterSchema,
 	razorpayWebhookSchema,
 	updatePaymentSchema,
 } from "@voltaze/schema";
@@ -16,6 +17,7 @@ export function createPaymentsRouter(): Router {
 
 	router.get(
 		"/",
+		validatePipe({ query: paymentFilterSchema }),
 		asyncHandler((req, res) => paymentsController.list(req, res)),
 	);
 	router.get(

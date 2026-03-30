@@ -1,6 +1,7 @@
 import {
 	createPassSchema,
 	idParamSchema,
+	passFilterSchema,
 	updatePassSchema,
 	validatePassSchema,
 } from "@voltaze/schema";
@@ -9,8 +10,9 @@ import type { Request, Response } from "express";
 import { passesService } from "./passes.service";
 
 export class PassesController {
-	async list(_req: Request, res: Response) {
-		const passes = await passesService.list();
+	async list(req: Request, res: Response) {
+		const query = passFilterSchema.parse(req.query);
+		const passes = await passesService.list(query);
 		res.status(200).json(passes);
 	}
 

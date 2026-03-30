@@ -53,6 +53,18 @@ export const razorpayWebhookSchema = z.object({
 	}),
 });
 
+export const paymentFilterSchema = z.object({
+	orderId: z.string().cuid().optional(),
+	gateway: z.enum(["RAZORPAY"]).optional(),
+	status: z.enum(["PENDING", "SUCCESS", "FAILED", "REFUNDED"]).optional(),
+	transactionId: z.string().optional(),
+	page: z.coerce.number().int().positive().default(1),
+	limit: z.coerce.number().int().positive().max(100).default(20),
+	sortBy: z.enum(["createdAt", "amount", "status"]).default("createdAt"),
+	sortOrder: z.enum(["asc", "desc"]).default("desc"),
+});
+
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
 export type UpdatePaymentInput = z.infer<typeof updatePaymentSchema>;
 export type RazorpayWebhookInput = z.infer<typeof razorpayWebhookSchema>;
+export type PaymentFilterInput = z.infer<typeof paymentFilterSchema>;

@@ -1,6 +1,7 @@
 import {
 	createPassSchema,
 	idParamSchema,
+	passFilterSchema,
 	updatePassSchema,
 	validatePassSchema,
 } from "@voltaze/schema";
@@ -16,6 +17,7 @@ export function createPassesRouter(): Router {
 
 	router.get(
 		"/",
+		validatePipe({ query: passFilterSchema }),
 		asyncHandler((req, res) => passesController.list(req, res)),
 	);
 	router.get(

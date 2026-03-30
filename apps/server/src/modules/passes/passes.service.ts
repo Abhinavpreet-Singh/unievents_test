@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@voltaze/db";
 import type {
 	CreatePassInput,
+	PassFilterInput,
 	UpdatePassInput,
 	ValidatePassInput,
 } from "@voltaze/schema";
@@ -9,8 +10,16 @@ import type {
 import { BadRequestError, NotFoundError } from "@/common/exceptions/app-error";
 
 export class PassesService {
-	async list() {
-		return prisma.pass.findMany({ orderBy: { createdAt: "desc" } });
+	async list(input: PassFilterInput) {
+		const { page, limit, sortBy, sortOrder, ...filters } = input;
+		const skip = (page - 1) * limit;
+
+		return prisma.pass.findMany({
+			where: filters,
+			orderBy: { [sortBy]: sortOrder },
+			skip,
+			take: limit,
+		});
 	}
 
 	async getById(id: string) {

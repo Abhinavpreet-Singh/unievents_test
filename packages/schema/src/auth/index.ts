@@ -49,8 +49,8 @@ export const authRequestMetaSchema = z.object({
 });
 
 export const accessTokenPayloadSchema = z.object({
-	sub: z.string(),
-	sessionId: z.string(),
+	sub: ulidSchema,
+	sessionId: ulidSchema,
 	email: z.string().email(),
 	role: userRoleSchema,
 	type: z.literal("access"),
