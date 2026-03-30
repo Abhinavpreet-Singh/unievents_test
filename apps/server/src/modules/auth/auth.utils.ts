@@ -98,7 +98,19 @@ export async function hashPassword(password: string) {
 }
 
 export async function verifyPassword(password: string, hash: string) {
-	return Bun.password.verify(password, hash);
+	try {
+		return await Bun.password.verify(password, hash);
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			"code" in error &&
+			error.code === "PASSWORD_INVALID_ENCODING"
+		) {
+			return false;
+		}
+
+		throw error;
+	}
 }
 
 export function createRefreshToken() {

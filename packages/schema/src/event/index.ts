@@ -49,7 +49,7 @@ export const eventSchema = z.object({
 	updatedAt: z.date(),
 }) satisfies z.ZodType<Event>;
 
-export const createEventSchema = eventSchema
+const createEventSchemaBase = eventSchema
 	.omit({
 		id: true,
 		createdAt: true,
@@ -71,12 +71,15 @@ export const createEventSchema = eventSchema
 		mode: z.enum(["ONLINE", "OFFLINE"]),
 		visibility: z.enum(["PUBLIC", "PRIVATE"]),
 		description: z.string().min(1).max(5000),
-	})
-	.superRefine((value, ctx) => {
-		validateDateRange(value.startDate, value.endDate, "endDate", ctx);
 	});
 
-export const updateEventSchema = createEventSchema
+export const createEventSchema = createEventSchemaBase.superRefine(
+	(value, ctx) => {
+		validateDateRange(value.startDate, value.endDate, "endDate", ctx);
+	},
+);
+
+export const updateEventSchema = createEventSchemaBase
 	.partial()
 	.extend({
 		name: z.string().min(1).max(200).optional(),
@@ -153,7 +156,7 @@ export const ticketTierSchema = z.object({
 	updatedAt: z.date(),
 }) satisfies z.ZodType<TicketTier>;
 
-export const createTicketTierSchema = ticketTierSchema
+const createTicketTierSchemaBase = ticketTierSchema
 	.omit({
 		id: true,
 		createdAt: true,
@@ -167,32 +170,45 @@ export const createTicketTierSchema = ticketTierSchema
 		maxQuantity: z.number().int().positive(),
 		salesStart: z.coerce.date().optional().nullable(),
 		salesEnd: z.coerce.date().optional().nullable(),
+	});
+
+export const createTicketTierSchema = createTicketTierSchemaBase.superRefine(
+	(value, ctx) => {
+		validateDateRange(value.salesStart, value.salesEnd, "salesEnd", ctx);
+	},
+);
+
+const updateTicketTierSchemaBase = createTicketTierSchemaBase.partial().extend({
+	name: z.string().min(1).max(100).optional(),
+	description: z.string().max(500).optional().nullable(),
+	price: z.number().int().min(0).optional(),
+	maxQuantity: z.number().int().positive().optional(),
+	salesStart: z.coerce.date().optional().nullable(),
+	salesEnd: z.coerce.date().optional().nullable(),
+});
+
+export const updateTicketTierSchema = updateTicketTierSchemaBase.superRefine(
+	(value, ctx) => {
+		validateDateRange(value.salesStart, value.salesEnd, "salesEnd", ctx);
+	},
+);
+
+const createEventTicketTierSchemaBase = createTicketTierSchemaBase.omit({
+	eventId: true,
+});
+
+export const createEventTicketTierSchema =
+	createEventTicketTierSchemaBase.superRefine((value, ctx) => {
+		validateDateRange(value.salesStart, value.salesEnd, "salesEnd", ctx);
+	});
+
+export const updateEventTicketTierSchema = updateTicketTierSchemaBase
+	.omit({
+		eventId: true,
 	})
 	.superRefine((value, ctx) => {
 		validateDateRange(value.salesStart, value.salesEnd, "salesEnd", ctx);
 	});
-
-export const updateTicketTierSchema = createTicketTierSchema
-	.partial()
-	.extend({
-		name: z.string().min(1).max(100).optional(),
-		description: z.string().max(500).optional().nullable(),
-		price: z.number().int().min(0).optional(),
-		maxQuantity: z.number().int().positive().optional(),
-		salesStart: z.coerce.date().optional().nullable(),
-		salesEnd: z.coerce.date().optional().nullable(),
-	})
-	.superRefine((value, ctx) => {
-		validateDateRange(value.salesStart, value.salesEnd, "salesEnd", ctx);
-	});
-
-export const createEventTicketTierSchema = createTicketTierSchema.omit({
-	eventId: true,
-});
-
-export const updateEventTicketTierSchema = updateTicketTierSchema.omit({
-	eventId: true,
-});
 
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;

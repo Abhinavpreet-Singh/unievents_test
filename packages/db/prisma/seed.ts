@@ -439,20 +439,32 @@ async function seedDetailed(): Promise<DetailedSeedResult> {
 		},
 	});
 
+	const [
+		adminPasswordHash,
+		hostPriyaPasswordHash,
+		hostArjunPasswordHash,
+		attendeeAvaPasswordHash,
+	] = await Promise.all([
+		Bun.password.hash("AdminSeed@123"),
+		Bun.password.hash("HostPriyaSeed@123"),
+		Bun.password.hash("HostArjunSeed@123"),
+		Bun.password.hash("AttendeeAvaSeed@123"),
+	]);
+
 	await prisma.account.upsert({
 		where: { id: seedIds.accounts.adminCredentials },
 		update: {
 			accountId: adminUser.email,
 			providerId: "credentials",
 			userId: adminUser.id,
-			password: "$2b$12$seed.admin.password.hash",
+			password: adminPasswordHash,
 		},
 		create: {
 			id: seedIds.accounts.adminCredentials,
 			accountId: adminUser.email,
 			providerId: "credentials",
 			userId: adminUser.id,
-			password: "$2b$12$seed.admin.password.hash",
+			password: adminPasswordHash,
 		},
 	});
 
@@ -462,14 +474,14 @@ async function seedDetailed(): Promise<DetailedSeedResult> {
 			accountId: hostPriyaUser.email,
 			providerId: "credentials",
 			userId: hostPriyaUser.id,
-			password: "$2b$12$seed.host.priya.password.hash",
+			password: hostPriyaPasswordHash,
 		},
 		create: {
 			id: seedIds.accounts.hostPriyaCredentials,
 			accountId: hostPriyaUser.email,
 			providerId: "credentials",
 			userId: hostPriyaUser.id,
-			password: "$2b$12$seed.host.priya.password.hash",
+			password: hostPriyaPasswordHash,
 		},
 	});
 
@@ -479,14 +491,14 @@ async function seedDetailed(): Promise<DetailedSeedResult> {
 			accountId: hostArjunUser.email,
 			providerId: "credentials",
 			userId: hostArjunUser.id,
-			password: "$2b$12$seed.host.arjun.password.hash",
+			password: hostArjunPasswordHash,
 		},
 		create: {
 			id: seedIds.accounts.hostArjunCredentials,
 			accountId: hostArjunUser.email,
 			providerId: "credentials",
 			userId: hostArjunUser.id,
-			password: "$2b$12$seed.host.arjun.password.hash",
+			password: hostArjunPasswordHash,
 		},
 	});
 
@@ -496,14 +508,14 @@ async function seedDetailed(): Promise<DetailedSeedResult> {
 			accountId: attendeeAvaUser.email,
 			providerId: "credentials",
 			userId: attendeeAvaUser.id,
-			password: "$2b$12$seed.attendee.ava.password.hash",
+			password: attendeeAvaPasswordHash,
 		},
 		create: {
 			id: seedIds.accounts.attendeeAvaCredentials,
 			accountId: attendeeAvaUser.email,
 			providerId: "credentials",
 			userId: attendeeAvaUser.id,
-			password: "$2b$12$seed.attendee.ava.password.hash",
+			password: attendeeAvaPasswordHash,
 		},
 	});
 
