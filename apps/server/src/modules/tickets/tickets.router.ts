@@ -39,6 +39,12 @@ export function createTicketsRouter(): Router {
 		validatePipe({ params: idParamSchema, body: updateTicketSchema }),
 		asyncHandler((req, res) => ticketsController.update(req, res)),
 	);
+	router.delete(
+		"/:id",
+		requireAuth,
+		validatePipe({ params: idParamSchema }),
+		asyncHandler((req, res) => ticketsController.delete(req, res)),
+	);
 
 	return router;
 }

@@ -47,6 +47,12 @@ export class TicketsController {
 		);
 		res.status(200).json(ticket);
 	}
+
+	async delete(req: Request, res: Response) {
+		const params = idParamSchema.parse(req.params);
+		await ticketsService.delete(params.id, this.getActor(req));
+		res.status(204).send();
+	}
 }
 
 export const ticketsController = new TicketsController();

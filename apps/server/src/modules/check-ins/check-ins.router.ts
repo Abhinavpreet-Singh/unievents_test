@@ -32,6 +32,12 @@ export function createCheckInsRouter(): Router {
 		validatePipe({ body: createCheckInSchema }),
 		asyncHandler((req, res) => checkInsController.create(req, res)),
 	);
+	router.delete(
+		"/:id",
+		requireAuth,
+		validatePipe({ params: idParamSchema }),
+		asyncHandler((req, res) => checkInsController.delete(req, res)),
+	);
 
 	return router;
 }

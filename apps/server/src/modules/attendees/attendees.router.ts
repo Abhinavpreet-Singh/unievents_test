@@ -39,6 +39,12 @@ export function createAttendeesRouter(): Router {
 		validatePipe({ params: idParamSchema, body: updateAttendeeSchema }),
 		asyncHandler((req, res) => attendeesController.update(req, res)),
 	);
+	router.delete(
+		"/:id",
+		requireAuth,
+		validatePipe({ params: idParamSchema }),
+		asyncHandler((req, res) => attendeesController.delete(req, res)),
+	);
 
 	return router;
 }

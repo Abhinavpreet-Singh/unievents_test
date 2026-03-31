@@ -17,6 +17,31 @@ function getBearerToken(authorizationHeader?: string) {
 	return token;
 }
 
+async function attachAuthContext(authReq: RequestWithAuth, token: string) {
+	const payload = await verifyAccessToken(token);
+	const session = await prisma.session.findUnique({
+		where: { id: payload.sessionId },
+		include: { user: true },
+	});
+
+	if (!session || session.userId !== payload.sub) {
+		throw new UnauthorizedError("Session not found");
+	}
+
+	if (session.expiresAt <= new Date()) {
+		await prisma.session.delete({ where: { id: session.id } });
+		throw new UnauthorizedError("Session expired");
+	}
+
+	authReq.auth = {
+		userId: session.user.id,
+		sessionId: session.id,
+		email: session.user.email,
+		role: session.user.role,
+	};
+	authReq.user = session.user;
+}
+
 export const requireAuth: RequestHandler = async (req, _res, next) => {
 	try {
 		const authReq = req as RequestWithAuth;
@@ -25,28 +50,7 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
 			throw new UnauthorizedError("Missing bearer token");
 		}
 
-		const payload = await verifyAccessToken(token);
-		const session = await prisma.session.findUnique({
-			where: { id: payload.sessionId },
-			include: { user: true },
-		});
-
-		if (!session || session.userId !== payload.sub) {
-			throw new UnauthorizedError("Session not found");
-		}
-
-		if (session.expiresAt <= new Date()) {
-			await prisma.session.delete({ where: { id: session.id } });
-			throw new UnauthorizedError("Session expired");
-		}
-
-		authReq.auth = {
-			userId: session.user.id,
-			sessionId: session.id,
-			email: session.user.email,
-			role: session.user.role,
-		};
-		authReq.user = session.user;
+		await attachAuthContext(authReq, token);
 
 		next();
 	} catch (error) {
@@ -56,6 +60,24 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
 				: new UnauthorizedError("Invalid or expired access token"),
 		);
 	}
+};
+
+export const optionalAuth: RequestHandler = async (req, _res, next) => {
+	const authReq = req as RequestWithAuth;
+	const token = getBearerToken(req.get("authorization"));
+
+	if (!token) {
+		return next();
+	}
+
+	try {
+		await attachAuthContext(authReq, token);
+	} catch {
+		authReq.auth = undefined;
+		authReq.user = undefined;
+	}
+
+	next();
 };
 
 export function requireRoles(...roles: UserRole[]): RequestHandler {

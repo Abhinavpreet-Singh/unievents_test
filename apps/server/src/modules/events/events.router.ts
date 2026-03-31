@@ -12,6 +12,7 @@ import {
 import { Router } from "express";
 
 import {
+	optionalAuth,
 	requireAuth,
 	requireRoles,
 } from "@/common/middlewares/auth.middleware";
@@ -25,11 +26,13 @@ export function createEventsRouter(): Router {
 
 	router.get(
 		"/",
+		optionalAuth,
 		validatePipe({ query: eventFilterSchema }),
 		asyncHandler((req, res) => eventsController.list(req, res)),
 	);
 	router.get(
 		"/:eventId/ticket-tiers",
+		optionalAuth,
 		validatePipe({
 			params: eventTicketTierParamsSchema,
 			query: ticketTierFilterSchema,
@@ -38,11 +41,13 @@ export function createEventsRouter(): Router {
 	);
 	router.get(
 		"/:eventId/ticket-tiers/:tierId",
+		optionalAuth,
 		validatePipe({ params: eventTicketTierIdParamsSchema }),
 		asyncHandler((req, res) => eventsController.getTicketTierById(req, res)),
 	);
 	router.get(
 		"/:id",
+		optionalAuth,
 		validatePipe({ params: idParamSchema }),
 		asyncHandler((req, res) => eventsController.getById(req, res)),
 	);
@@ -59,6 +64,13 @@ export function createEventsRouter(): Router {
 		requireRoles("ADMIN", "HOST"),
 		validatePipe({ params: idParamSchema, body: updateEventSchema }),
 		asyncHandler((req, res) => eventsController.update(req, res)),
+	);
+	router.delete(
+		"/:id",
+		requireAuth,
+		requireRoles("ADMIN", "HOST"),
+		validatePipe({ params: idParamSchema }),
+		asyncHandler((req, res) => eventsController.delete(req, res)),
 	);
 	router.post(
 		"/:eventId/ticket-tiers",

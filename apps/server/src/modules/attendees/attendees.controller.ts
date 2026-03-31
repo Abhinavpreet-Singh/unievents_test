@@ -50,6 +50,12 @@ export class AttendeesController {
 		);
 		res.status(200).json(attendee);
 	}
+
+	async delete(req: Request, res: Response) {
+		const params = idParamSchema.parse(req.params);
+		await attendeesService.delete(params.id, this.getActor(req));
+		res.status(204).send();
+	}
 }
 
 export const attendeesController = new AttendeesController();

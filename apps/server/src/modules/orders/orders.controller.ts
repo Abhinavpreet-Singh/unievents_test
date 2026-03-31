@@ -47,6 +47,12 @@ export class OrdersController {
 		);
 		res.status(200).json(order);
 	}
+
+	async delete(req: Request, res: Response) {
+		const params = idParamSchema.parse(req.params);
+		await ordersService.delete(params.id, this.getActor(req));
+		res.status(204).send();
+	}
 }
 
 export const ordersController = new OrdersController();

@@ -39,6 +39,12 @@ export function createOrdersRouter(): Router {
 		validatePipe({ params: idParamSchema, body: updateOrderSchema }),
 		asyncHandler((req, res) => ordersController.update(req, res)),
 	);
+	router.delete(
+		"/:id",
+		requireAuth,
+		validatePipe({ params: idParamSchema }),
+		asyncHandler((req, res) => ordersController.delete(req, res)),
+	);
 
 	return router;
 }

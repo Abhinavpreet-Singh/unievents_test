@@ -1,4 +1,4 @@
-import { type Prisma, prisma, type UserRole } from "@voltaze/db";
+import { Prisma, prisma, type UserRole } from "@voltaze/db";
 import type {
 	CreateTicketInput,
 	TicketFilterInput,
@@ -67,6 +67,76 @@ export class TicketsService {
 		}
 	}
 
+	private ensureCanReassignTicket(ticket: {
+		pass: { id: string } | null;
+		order: { status: "PENDING" | "COMPLETED" | "CANCELLED" };
+	}) {
+		if (ticket.pass) {
+			throw new BadRequestError(
+				"Cannot reassign ticket after a pass has been issued",
+			);
+		}
+
+		if (ticket.order.status === "COMPLETED") {
+			throw new BadRequestError(
+				"Tickets linked to completed orders cannot be reassigned",
+			);
+		}
+	}
+
+	private ensurePaidTierHasSettledPayment(
+		order: {
+			status: "PENDING" | "COMPLETED" | "CANCELLED";
+			payment: {
+				status: "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
+				deletedAt: Date | null;
+			} | null;
+		},
+		tierPrice: number,
+	) {
+		if (tierPrice <= 0) {
+			return;
+		}
+
+		if (order.status !== "COMPLETED") {
+			throw new BadRequestError(
+				"Cannot issue paid tickets until the order is completed",
+			);
+		}
+
+		if (
+			!order.payment ||
+			order.payment.deletedAt !== null ||
+			order.payment.status !== "SUCCESS"
+		) {
+			throw new BadRequestError(
+				"Cannot issue paid tickets without a successful payment",
+			);
+		}
+	}
+
+	private ensureCanDeleteTicket(ticket: {
+		pass: { id: string } | null;
+		order: { status: "PENDING" | "COMPLETED" | "CANCELLED" };
+		tier: { soldCount: number };
+	}) {
+		if (ticket.pass) {
+			throw new BadRequestError("Cannot delete ticket with an issued pass");
+		}
+
+		if (ticket.order.status === "COMPLETED") {
+			throw new BadRequestError(
+				"Tickets linked to completed orders cannot be deleted",
+			);
+		}
+
+		if (ticket.tier.soldCount < 1) {
+			throw new BadRequestError(
+				"Ticket tier inventory is inconsistent for this ticket",
+			);
+		}
+	}
+
 	async list(input: TicketFilterInput, actor: TicketActor) {
 		const { page, limit, sortBy, sortOrder, ...filters } = input;
 		const skip = (page - 1) * limit;
@@ -108,6 +178,12 @@ export class TicketsService {
 							userId: true,
 						},
 					},
+					payment: {
+						select: {
+							status: true,
+							deletedAt: true,
+						},
+					},
 				},
 			}),
 			prisma.event.findUnique({ where: { id: input.eventId } }),
@@ -130,28 +206,64 @@ export class TicketsService {
 		}
 
 		this.ensureCanUseOrder(order, actor);
+		this.ensurePaidTierHasSettledPayment(order, tier.price);
 
 		if (tier.soldCount >= tier.maxQuantity) {
 			throw new BadRequestError("Ticket tier sold out");
 		}
 
-		return prisma.$transaction(async (tx) => {
-			const ticket = await tx.ticket.create({
-				data: {
-					...input,
-					pricePaid: tier.price,
-				},
+		try {
+			return await prisma.$transaction(async (tx) => {
+				const ticket = await tx.ticket.create({
+					data: {
+						...input,
+						pricePaid: tier.price,
+					},
+				});
+				await tx.ticketTier.update({
+					where: { id: input.tierId },
+					data: { soldCount: { increment: 1 } },
+				});
+				return ticket;
 			});
-			await tx.ticketTier.update({
-				where: { id: input.tierId },
-				data: { soldCount: { increment: 1 } },
-			});
-			return ticket;
-		});
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2003") {
+					throw new BadRequestError("Ticket references invalid relations");
+				}
+			}
+
+			throw error;
+		}
 	}
 
 	async update(id: string, input: UpdateTicketInput, actor: TicketActor) {
-		const ticket = await this.getById(id, actor);
+		const ticket = await prisma.ticket.findFirst({
+			where: {
+				id,
+				...this.buildAccessWhere(actor),
+			},
+			select: {
+				id: true,
+				orderId: true,
+				eventId: true,
+				tierId: true,
+				pass: {
+					select: {
+						id: true,
+					},
+				},
+				order: {
+					select: {
+						status: true,
+					},
+				},
+			},
+		});
+
+		if (!ticket) {
+			throw new NotFoundError("Ticket not found");
+		}
 
 		if (
 			actor.role === "USER" &&
@@ -175,6 +287,8 @@ export class TicketsService {
 			return prisma.ticket.update({ where: { id }, data: input });
 		}
 
+		this.ensureCanReassignTicket(ticket);
+
 		const [order, event, tier] = await Promise.all([
 			prisma.order.findUnique({
 				where: { id: nextOrderId },
@@ -189,6 +303,12 @@ export class TicketsService {
 							userId: true,
 						},
 					},
+					payment: {
+						select: {
+							status: true,
+							deletedAt: true,
+						},
+					},
 				},
 			}),
 			prisma.event.findUnique({ where: { id: nextEventId } }),
@@ -201,6 +321,9 @@ export class TicketsService {
 		if (order.deletedAt) {
 			throw new BadRequestError("Order is no longer active");
 		}
+		if (order.status === "CANCELLED") {
+			throw new BadRequestError("Cannot assign ticket to cancelled order");
+		}
 		if (order.eventId !== nextEventId) {
 			throw new BadRequestError("Order does not belong to event");
 		}
@@ -209,6 +332,7 @@ export class TicketsService {
 		}
 
 		this.ensureCanUseOrder(order, actor);
+		this.ensurePaidTierHasSettledPayment(order, tier.price);
 
 		if (nextTierId === ticket.tierId) {
 			return prisma.ticket.update({ where: { id }, data: input });
@@ -218,24 +342,99 @@ export class TicketsService {
 			throw new BadRequestError("Ticket tier sold out");
 		}
 
-		return prisma.$transaction(async (tx) => {
-			await tx.ticketTier.update({
-				where: { id: ticket.tierId },
+		try {
+			return await prisma.$transaction(async (tx) => {
+				const decrementedTier = await tx.ticketTier.updateMany({
+					where: {
+						id: ticket.tierId,
+						soldCount: {
+							gt: 0,
+						},
+					},
+					data: { soldCount: { decrement: 1 } },
+				});
+
+				if (decrementedTier.count === 0) {
+					throw new BadRequestError(
+						"Ticket tier inventory is inconsistent for this ticket",
+					);
+				}
+
+				await tx.ticketTier.update({
+					where: { id: nextTierId },
+					data: { soldCount: { increment: 1 } },
+				});
+
+				return tx.ticket.update({
+					where: { id },
+					data: {
+						...input,
+						pricePaid: tier.price,
+					},
+				});
+			});
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2003") {
+					throw new BadRequestError("Ticket references invalid relations");
+				}
+			}
+
+			throw error;
+		}
+	}
+
+	async delete(id: string, actor: TicketActor) {
+		const ticket = await prisma.ticket.findFirst({
+			where: {
+				id,
+				...this.buildAccessWhere(actor),
+			},
+			select: {
+				id: true,
+				tierId: true,
+				pass: {
+					select: {
+						id: true,
+					},
+				},
+				order: {
+					select: {
+						status: true,
+					},
+				},
+				tier: {
+					select: {
+						soldCount: true,
+					},
+				},
+			},
+		});
+
+		if (!ticket) {
+			throw new NotFoundError("Ticket not found");
+		}
+
+		this.ensureCanDeleteTicket(ticket);
+
+		await prisma.$transaction(async (tx) => {
+			await tx.ticket.delete({ where: { id: ticket.id } });
+
+			const decrementedTier = await tx.ticketTier.updateMany({
+				where: {
+					id: ticket.tierId,
+					soldCount: {
+						gt: 0,
+					},
+				},
 				data: { soldCount: { decrement: 1 } },
 			});
 
-			await tx.ticketTier.update({
-				where: { id: nextTierId },
-				data: { soldCount: { increment: 1 } },
-			});
-
-			return tx.ticket.update({
-				where: { id },
-				data: {
-					...input,
-					pricePaid: tier.price,
-				},
-			});
+			if (decrementedTier.count === 0) {
+				throw new BadRequestError(
+					"Ticket tier inventory is inconsistent for this ticket",
+				);
+			}
 		});
 	}
 }

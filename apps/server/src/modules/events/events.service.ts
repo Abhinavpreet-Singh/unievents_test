@@ -1,4 +1,4 @@
-import { prisma, type UserRole } from "@voltaze/db";
+import { Prisma, prisma, type UserRole } from "@voltaze/db";
 import type {
 	CreateEventInput,
 	CreateEventTicketTierInput,
@@ -10,6 +10,7 @@ import type {
 
 import {
 	BadRequestError,
+	ConflictError,
 	ForbiddenError,
 	NotFoundError,
 } from "@/common/exceptions/app-error";
@@ -19,8 +20,128 @@ type EventActor = {
 	role: UserRole;
 };
 
+type EventStatus = "DRAFT" | "PUBLISHED" | "CANCELLED" | "COMPLETED";
+
 export class EventsService {
-	async list(input: EventFilterInput) {
+	private buildReadAccessWhere(actor?: EventActor): Prisma.EventWhereInput {
+		const publicPublishedWhere: Prisma.EventWhereInput = {
+			visibility: "PUBLIC",
+			status: {
+				in: ["PUBLISHED", "COMPLETED"],
+			},
+		};
+
+		if (!actor) {
+			return publicPublishedWhere;
+		}
+
+		if (actor.role === "ADMIN") {
+			return {};
+		}
+
+		if (actor.role === "HOST") {
+			return {
+				OR: [publicPublishedWhere, { userId: actor.userId }],
+			};
+		}
+
+		return {
+			OR: [
+				publicPublishedWhere,
+				{
+					attendees: {
+						some: {
+							userId: actor.userId,
+						},
+					},
+				},
+			],
+		};
+	}
+
+	private validateEventWindow(startDate: Date, endDate: Date) {
+		if (endDate < startDate) {
+			throw new BadRequestError(
+				"Event endDate must be greater than or equal to startDate",
+			);
+		}
+	}
+
+	private validateEventStatusTransition(
+		currentStatus: EventStatus,
+		nextStatus: EventStatus,
+	) {
+		if (currentStatus === "COMPLETED" && nextStatus !== "COMPLETED") {
+			throw new BadRequestError("Completed events cannot be reopened");
+		}
+
+		if (currentStatus === "CANCELLED" && nextStatus !== "CANCELLED") {
+			throw new BadRequestError("Cancelled events cannot be reopened");
+		}
+	}
+
+	private async ensureTicketTierWindowsWithinEvent(
+		eventId: string,
+		startDate: Date,
+		endDate: Date,
+	) {
+		const conflictingTicketTier = await prisma.ticketTier.findFirst({
+			where: {
+				eventId,
+				OR: [
+					{
+						salesStart: {
+							not: null,
+							lt: startDate,
+						},
+					},
+					{
+						salesEnd: {
+							not: null,
+							gt: endDate,
+						},
+					},
+				],
+			},
+			select: { id: true },
+		});
+
+		if (conflictingTicketTier) {
+			throw new BadRequestError(
+				"Event date range cannot exclude existing ticket tier sales windows",
+			);
+		}
+	}
+
+	private ensureCanModifyTicketTiers(eventStatus: EventStatus) {
+		if (eventStatus === "CANCELLED" || eventStatus === "COMPLETED") {
+			throw new BadRequestError(
+				"Cannot modify ticket tiers for cancelled or completed events",
+			);
+		}
+	}
+
+	private validateTicketTierWindowWithinEvent(
+		eventRange: { startDate: Date; endDate: Date },
+		salesStart?: Date | null,
+		salesEnd?: Date | null,
+	) {
+		this.validateSalesWindow(salesStart, salesEnd);
+
+		if (salesStart && salesStart < eventRange.startDate) {
+			throw new BadRequestError(
+				"Ticket tier salesStart cannot be before event startDate",
+			);
+		}
+
+		if (salesEnd && salesEnd > eventRange.endDate) {
+			throw new BadRequestError(
+				"Ticket tier salesEnd cannot be after event endDate",
+			);
+		}
+	}
+
+	async list(input: EventFilterInput, actor?: EventActor) {
 		const {
 			page,
 			limit,
@@ -32,23 +153,29 @@ export class EventsService {
 			...filters
 		} = input;
 		const skip = (page - 1) * limit;
+		const accessWhere = this.buildReadAccessWhere(actor);
 
 		return prisma.event.findMany({
 			where: {
-				...filters,
-				startDate:
-					startDateFrom || startDateTo
-						? {
-								gte: startDateFrom,
-								lte: startDateTo,
-							}
-						: undefined,
-				name: search
-					? {
-							contains: search,
-							mode: "insensitive",
-						}
-					: undefined,
+				AND: [
+					accessWhere,
+					{
+						...filters,
+						startDate:
+							startDateFrom || startDateTo
+								? {
+										gte: startDateFrom,
+										lte: startDateTo,
+									}
+								: undefined,
+						name: search
+							? {
+									contains: search,
+									mode: "insensitive",
+								}
+							: undefined,
+					},
+				],
 			},
 			orderBy: { [sortBy]: sortOrder },
 			skip,
@@ -56,8 +183,13 @@ export class EventsService {
 		});
 	}
 
-	async getById(id: string) {
-		const event = await prisma.event.findUnique({ where: { id } });
+	async getById(id: string, actor?: EventActor) {
+		const accessWhere = this.buildReadAccessWhere(actor);
+		const event = await prisma.event.findFirst({
+			where: {
+				AND: [{ id }, accessWhere],
+			},
+		});
 		if (!event) {
 			throw new NotFoundError("Event not found");
 		}
@@ -65,14 +197,30 @@ export class EventsService {
 	}
 
 	async create(input: CreateEventInput, hostUserId: string) {
+		this.validateEventWindow(input.startDate, input.endDate);
 		const slug = input.name.toLowerCase().trim().replaceAll(/\s+/g, "-");
-		return prisma.event.create({
-			data: {
-				...input,
-				userId: hostUserId,
-				slug: `${slug}-${Date.now()}`,
-			},
-		});
+
+		try {
+			return await prisma.event.create({
+				data: {
+					...input,
+					userId: hostUserId,
+					slug: `${slug}-${Date.now()}`,
+				},
+			});
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2002") {
+					throw new ConflictError("Event slug already exists");
+				}
+
+				if (error.code === "P2003") {
+					throw new BadRequestError("Event references invalid relations");
+				}
+			}
+
+			throw error;
+		}
 	}
 
 	private ensureCanManageEvent(eventUserId: string | null, actor: EventActor) {
@@ -97,17 +245,46 @@ export class EventsService {
 	}
 
 	async update(id: string, input: UpdateEventInput, actor: EventActor) {
-		const event = await this.getById(id);
+		const event = await this.getById(id, actor);
 		this.ensureCanManageEvent(event.userId, actor);
 
-		return prisma.event.update({
-			where: { id },
-			data: input,
-		});
+		const nextStartDate = input.startDate ?? event.startDate;
+		const nextEndDate = input.endDate ?? event.endDate;
+		this.validateEventWindow(nextStartDate, nextEndDate);
+
+		const nextStatus = input.status ?? event.status;
+		this.validateEventStatusTransition(event.status, nextStatus);
+
+		if (input.startDate !== undefined || input.endDate !== undefined) {
+			await this.ensureTicketTierWindowsWithinEvent(
+				id,
+				nextStartDate,
+				nextEndDate,
+			);
+		}
+
+		try {
+			return await prisma.event.update({
+				where: { id },
+				data: input,
+			});
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2003") {
+					throw new BadRequestError("Event references invalid relations");
+				}
+			}
+
+			throw error;
+		}
 	}
 
-	async listTicketTiers(eventId: string, input: TicketTierFilterInput) {
-		await this.getById(eventId);
+	async listTicketTiers(
+		eventId: string,
+		input: TicketTierFilterInput,
+		actor?: EventActor,
+	) {
+		await this.getById(eventId, actor);
 		const { page, limit, sortBy, sortOrder } = input;
 		const skip = (page - 1) * limit;
 
@@ -119,7 +296,9 @@ export class EventsService {
 		});
 	}
 
-	async getTicketTierById(eventId: string, tierId: string) {
+	async getTicketTierById(eventId: string, tierId: string, actor?: EventActor) {
+		await this.getById(eventId, actor);
+
 		const ticketTier = await prisma.ticketTier.findFirst({
 			where: {
 				id: tierId,
@@ -139,16 +318,31 @@ export class EventsService {
 		input: CreateEventTicketTierInput,
 		actor: EventActor,
 	) {
-		const event = await this.getById(eventId);
+		const event = await this.getById(eventId, actor);
 		this.ensureCanManageEvent(event.userId, actor);
-		this.validateSalesWindow(input.salesStart, input.salesEnd);
+		this.ensureCanModifyTicketTiers(event.status);
+		this.validateTicketTierWindowWithinEvent(
+			{ startDate: event.startDate, endDate: event.endDate },
+			input.salesStart,
+			input.salesEnd,
+		);
 
-		return prisma.ticketTier.create({
-			data: {
-				...input,
-				eventId,
-			},
-		});
+		try {
+			return await prisma.ticketTier.create({
+				data: {
+					...input,
+					eventId,
+				},
+			});
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2003") {
+					throw new BadRequestError("Ticket tier references invalid relations");
+				}
+			}
+
+			throw error;
+		}
 	}
 
 	async updateTicketTier(
@@ -157,13 +351,17 @@ export class EventsService {
 		input: UpdateEventTicketTierInput,
 		actor: EventActor,
 	) {
-		const event = await this.getById(eventId);
+		const event = await this.getById(eventId, actor);
 		this.ensureCanManageEvent(event.userId, actor);
+		this.ensureCanModifyTicketTiers(event.status);
 
-		const ticketTier = await this.getTicketTierById(eventId, tierId);
-		this.validateSalesWindow(
-			input.salesStart ?? ticketTier.salesStart,
-			input.salesEnd ?? ticketTier.salesEnd,
+		const ticketTier = await this.getTicketTierById(eventId, tierId, actor);
+		const nextSalesStart = input.salesStart ?? ticketTier.salesStart;
+		const nextSalesEnd = input.salesEnd ?? ticketTier.salesEnd;
+		this.validateTicketTierWindowWithinEvent(
+			{ startDate: event.startDate, endDate: event.endDate },
+			nextSalesStart,
+			nextSalesEnd,
 		);
 
 		if (
@@ -175,17 +373,28 @@ export class EventsService {
 			);
 		}
 
-		return prisma.ticketTier.update({
-			where: { id: tierId },
-			data: input,
-		});
+		try {
+			return await prisma.ticketTier.update({
+				where: { id: tierId },
+				data: input,
+			});
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2003") {
+					throw new BadRequestError("Ticket tier references invalid relations");
+				}
+			}
+
+			throw error;
+		}
 	}
 
 	async deleteTicketTier(eventId: string, tierId: string, actor: EventActor) {
-		const event = await this.getById(eventId);
+		const event = await this.getById(eventId, actor);
 		this.ensureCanManageEvent(event.userId, actor);
+		this.ensureCanModifyTicketTiers(event.status);
 
-		const ticketTier = await this.getTicketTierById(eventId, tierId);
+		const ticketTier = await this.getTicketTierById(eventId, tierId, actor);
 		if (ticketTier.soldCount > 0) {
 			throw new BadRequestError(
 				"Cannot delete ticket tier after tickets have been sold",
@@ -202,6 +411,57 @@ export class EventsService {
 		}
 
 		await prisma.ticketTier.delete({ where: { id: tierId } });
+	}
+
+	async delete(id: string, actor: EventActor) {
+		const event = await prisma.event.findUnique({
+			where: { id },
+			select: {
+				id: true,
+				userId: true,
+				_count: {
+					select: {
+						attendees: true,
+						orders: true,
+						tickets: true,
+						passes: true,
+					},
+				},
+			},
+		});
+
+		if (!event) {
+			throw new NotFoundError("Event not found");
+		}
+
+		this.ensureCanManageEvent(event.userId, actor);
+
+		const [checkInsCount, soldTicketTierCount] = await Promise.all([
+			prisma.checkIn.count({ where: { eventId: event.id } }),
+			prisma.ticketTier.count({
+				where: {
+					eventId: event.id,
+					soldCount: {
+						gt: 0,
+					},
+				},
+			}),
+		]);
+
+		if (
+			event._count.attendees > 0 ||
+			event._count.orders > 0 ||
+			event._count.tickets > 0 ||
+			event._count.passes > 0 ||
+			checkInsCount > 0 ||
+			soldTicketTierCount > 0
+		) {
+			throw new BadRequestError(
+				"Cannot delete event with related attendees, orders, tickets, passes, check-ins, or sold ticket tiers",
+			);
+		}
+
+		await prisma.event.delete({ where: { id: event.id } });
 	}
 }
 

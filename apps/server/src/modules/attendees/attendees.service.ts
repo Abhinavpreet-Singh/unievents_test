@@ -59,6 +59,21 @@ export class AttendeesService {
 		}
 	}
 
+	private async ensureUserExists(userId: string | null | undefined) {
+		if (!userId) {
+			return;
+		}
+
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			select: { id: true },
+		});
+
+		if (!user) {
+			throw new NotFoundError("User not found");
+		}
+	}
+
 	async list(input: AttendeeFilterInput, actor: AttendeeActor) {
 		const { page, limit, sortBy, sortOrder, search, ...filters } = input;
 		const skip = (page - 1) * limit;
@@ -103,23 +118,20 @@ export class AttendeesService {
 
 		this.ensureCanManageEvent(event.userId, actor);
 
-		const data: CreateAttendeeInput =
-			actor.role === "USER"
-				? {
-						...input,
-						userId: actor.userId,
-					}
-				: input;
-
 		if (
 			actor.role === "USER" &&
-			input.userId &&
+			input.userId !== undefined &&
 			input.userId !== actor.userId
 		) {
 			throw new ForbiddenError(
 				"Users can only create attendee records for themselves",
 			);
 		}
+
+		const userId = actor.role === "USER" ? actor.userId : input.userId;
+		await this.ensureUserExists(userId);
+
+		const data: CreateAttendeeInput = { ...input, userId };
 
 		try {
 			return await prisma.attendee.create({ data });
@@ -129,6 +141,10 @@ export class AttendeesService {
 					throw new ConflictError(
 						"Attendee already exists for this event/email",
 					);
+				}
+
+				if (error.code === "P2003") {
+					throw new BadRequestError("Attendee references invalid relations");
 				}
 			}
 
@@ -166,6 +182,10 @@ export class AttendeesService {
 			this.ensureCanManageEvent(nextEvent.userId, actor);
 		}
 
+		if (input.userId !== undefined) {
+			await this.ensureUserExists(input.userId);
+		}
+
 		try {
 			return await prisma.attendee.update({ where: { id }, data: input });
 		} catch (error) {
@@ -175,10 +195,49 @@ export class AttendeesService {
 						"Attendee already exists for this event/email",
 					);
 				}
+
+				if (error.code === "P2003") {
+					throw new BadRequestError("Attendee references invalid relations");
+				}
 			}
 
 			throw error;
 		}
+	}
+
+	async delete(id: string, actor: AttendeeActor) {
+		const attendee = await prisma.attendee.findFirst({
+			where: {
+				id,
+				...this.buildAccessWhere(actor),
+			},
+			select: {
+				id: true,
+				_count: {
+					select: {
+						orders: true,
+						passes: true,
+						checkIns: true,
+					},
+				},
+			},
+		});
+
+		if (!attendee) {
+			throw new NotFoundError("Attendee not found");
+		}
+
+		if (
+			attendee._count.orders > 0 ||
+			attendee._count.passes > 0 ||
+			attendee._count.checkIns > 0
+		) {
+			throw new BadRequestError(
+				"Cannot delete attendee with related orders, passes, or check-ins",
+			);
+		}
+
+		await prisma.attendee.delete({ where: { id: attendee.id } });
 	}
 }
 

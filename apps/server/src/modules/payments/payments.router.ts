@@ -45,6 +45,13 @@ export function createPaymentsRouter(): Router {
 		validatePipe({ params: idParamSchema, body: updatePaymentSchema }),
 		asyncHandler((req, res) => paymentsController.update(req, res)),
 	);
+	router.delete(
+		"/:id",
+		requireAuth,
+		requireRoles("ADMIN", "HOST"),
+		validatePipe({ params: idParamSchema }),
+		asyncHandler((req, res) => paymentsController.delete(req, res)),
+	);
 	router.post(
 		"/webhook/razorpay",
 		verifyRazorpayWebhookSignature,

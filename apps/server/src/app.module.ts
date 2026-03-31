@@ -6,11 +6,18 @@ import { errorHandlerMiddleware } from "./common/filters/error.filter";
 import { loggerMiddleware } from "./common/middlewares/logger.middleware";
 import { notFoundMiddleware } from "./common/middlewares/not-found.middleware";
 import { requestIdMiddleware } from "./common/middlewares/request-id.middleware";
+import {
+	apiRateLimitMiddleware,
+	securityHeadersMiddleware,
+} from "./common/middlewares/security.middleware";
 import { registerModules } from "./modules";
 
 export function createApp(): Express {
 	const app = express();
 	app.set("trust proxy", 1);
+
+	app.use(securityHeadersMiddleware);
+	app.use(apiRateLimitMiddleware);
 
 	app.use(
 		cors({

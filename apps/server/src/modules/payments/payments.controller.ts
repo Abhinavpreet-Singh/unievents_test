@@ -52,6 +52,12 @@ export class PaymentsController {
 		res.status(200).json(payment);
 	}
 
+	async delete(req: Request, res: Response) {
+		const params = idParamSchema.parse(req.params);
+		await paymentsService.delete(params.id, this.getActor(req));
+		res.status(204).send();
+	}
+
 	async webhook(req: Request, res: Response) {
 		const body = razorpayWebhookSchema.parse(req.body);
 		const payment = await paymentsService.handleWebhook(body);

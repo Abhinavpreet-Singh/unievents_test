@@ -6,7 +6,7 @@
 		"build": "tsdown",
 		"check-types": "tsc -b",
 		"compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-		"dev": "bun run --hot src/index.ts",
+		"dev": "nodemon -w src -w ../../packages -e ts,json --exec \"bun run src/index.ts\"",
 		"start": "bun run dist/index.mjs"
 	},
 	"dependencies": {
@@ -16,13 +16,16 @@
 		"cors": "^2.8.5",
 		"dotenv": "catalog:",
 		"express": "^5.1.0",
+		"express-rate-limit": "^8.3.2",
+		"helmet": "^8.1.0",
 		"zod": "catalog:"
 	},
 	"devDependencies": {
-		"@voltaze/config": "workspace:*",
 		"@types/bun": "catalog:",
 		"@types/cors": "^2.8.17",
 		"@types/express": "^5.0.1",
+		"@voltaze/config": "workspace:*",
+		"nodemon": "^3.1.14",
 		"tsdown": "^0.16.5",
 		"typescript": "^6"
 	}

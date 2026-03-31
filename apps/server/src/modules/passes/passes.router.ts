@@ -40,6 +40,12 @@ export function createPassesRouter(): Router {
 		validatePipe({ params: idParamSchema, body: updatePassSchema }),
 		asyncHandler((req, res) => passesController.update(req, res)),
 	);
+	router.delete(
+		"/:id",
+		requireAuth,
+		validatePipe({ params: idParamSchema }),
+		asyncHandler((req, res) => passesController.delete(req, res)),
+	);
 	router.post(
 		"/validate",
 		requireAuth,

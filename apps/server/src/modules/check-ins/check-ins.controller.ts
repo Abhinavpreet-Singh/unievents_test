@@ -38,6 +38,12 @@ export class CheckInsController {
 		const checkIn = await checkInsService.create(body, this.getActor(req));
 		res.status(201).json(checkIn);
 	}
+
+	async delete(req: Request, res: Response) {
+		const params = idParamSchema.parse(req.params);
+		await checkInsService.delete(params.id, this.getActor(req));
+		res.status(204).send();
+	}
 }
 
 export const checkInsController = new CheckInsController();

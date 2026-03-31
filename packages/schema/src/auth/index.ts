@@ -48,6 +48,10 @@ export const authRequestMetaSchema = z.object({
 	userAgent: z.string().optional().nullable(),
 });
 
+export const authSessionIdParamSchema = z.object({
+	sessionId: ulidSchema,
+});
+
 export const accessTokenPayloadSchema = z.object({
 	sub: ulidSchema,
 	sessionId: ulidSchema,
@@ -108,6 +112,19 @@ export const createSessionSchema = sessionSchema.omit({
 	createdAt: true,
 	updatedAt: true,
 });
+
+export const authSessionSchema = sessionSchema
+	.pick({
+		id: true,
+		expiresAt: true,
+		createdAt: true,
+		updatedAt: true,
+		ipAddress: true,
+		userAgent: true,
+	})
+	.extend({
+		isCurrent: z.boolean(),
+	});
 
 export const accountSchema = z.object({
 	id: ulidSchema,
@@ -185,3 +202,4 @@ export type RefreshSessionInput = z.infer<typeof refreshSessionSchema>;
 export type LogoutInput = z.infer<typeof logoutSchema>;
 export type AuthTokens = z.infer<typeof authTokensSchema>;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
+export type AuthSession = z.infer<typeof authSessionSchema>;

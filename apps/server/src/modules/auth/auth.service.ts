@@ -1,5 +1,6 @@
-import { prisma, type User } from "@voltaze/db";
+import { Prisma, prisma, type User } from "@voltaze/db";
 import type {
+	AuthSession,
 	LoginInput,
 	RefreshSessionInput,
 	RegisterInput,
@@ -7,6 +8,7 @@ import type {
 
 import {
 	ConflictError,
+	NotFoundError,
 	UnauthorizedError,
 } from "@/common/exceptions/app-error";
 
@@ -56,6 +58,28 @@ export class AuthService {
 		return email.trim().toLowerCase();
 	}
 
+	private toAuthSession(
+		session: {
+			id: string;
+			expiresAt: Date;
+			createdAt: Date;
+			updatedAt: Date;
+			ipAddress: string | null;
+			userAgent: string | null;
+		},
+		currentSessionId: string,
+	): AuthSession {
+		return {
+			id: session.id,
+			expiresAt: session.expiresAt,
+			createdAt: session.createdAt,
+			updatedAt: session.updatedAt,
+			ipAddress: session.ipAddress,
+			userAgent: session.userAgent,
+			isCurrent: session.id === currentSessionId,
+		};
+	}
+
 	private async createSession(user: User, context: AuthContext) {
 		const refreshToken = createRefreshToken();
 		const hashedRefreshToken = await hashRefreshToken(refreshToken);
@@ -98,25 +122,36 @@ export class AuthService {
 		}
 
 		const passwordHash = await hashPassword(input.password);
-		const user = await prisma.$transaction(async (tx) => {
-			const createdUser = await tx.user.create({
-				data: {
-					email,
-					name: input.name?.trim() || null,
-				},
-			});
+		let user: User;
+		try {
+			user = await prisma.$transaction(async (tx) => {
+				const createdUser = await tx.user.create({
+					data: {
+						email,
+						name: input.name?.trim() || null,
+					},
+				});
 
-			await tx.account.create({
-				data: {
-					userId: createdUser.id,
-					accountId: email,
-					providerId: CREDENTIALS_PROVIDER_ID,
-					password: passwordHash,
-				},
-			});
+				await tx.account.create({
+					data: {
+						userId: createdUser.id,
+						accountId: email,
+						providerId: CREDENTIALS_PROVIDER_ID,
+						password: passwordHash,
+					},
+				});
 
-			return createdUser;
-		});
+				return createdUser;
+			});
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2002") {
+					throw new ConflictError("An account with this email already exists");
+				}
+			}
+
+			throw error;
+		}
 
 		return this.createSession(user, context);
 	}
@@ -202,9 +237,64 @@ export class AuthService {
 
 	async logout(input: RefreshSessionInput) {
 		const hashedRefreshToken = await hashRefreshToken(input.refreshToken);
-		await prisma.session.deleteMany({
+		const result = await prisma.session.deleteMany({
 			where: { token: hashedRefreshToken },
 		});
+
+		if (result.count === 0) {
+			throw new UnauthorizedError("Invalid refresh token");
+		}
+	}
+
+	async logoutAll(userId: string) {
+		await prisma.session.deleteMany({ where: { userId } });
+	}
+
+	async listSessions(
+		userId: string,
+		currentSessionId: string,
+	): Promise<AuthSession[]> {
+		const sessions = await prisma.session.findMany({
+			where: {
+				userId,
+				expiresAt: {
+					gt: new Date(),
+				},
+			},
+			orderBy: {
+				createdAt: "desc",
+			},
+			select: {
+				id: true,
+				expiresAt: true,
+				createdAt: true,
+				updatedAt: true,
+				ipAddress: true,
+				userAgent: true,
+			},
+		});
+
+		return sessions.map((session) =>
+			this.toAuthSession(session, currentSessionId),
+		);
+	}
+
+	async revokeSession(userId: string, sessionId: string) {
+		const session = await prisma.session.findFirst({
+			where: {
+				id: sessionId,
+				userId,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		if (!session) {
+			throw new NotFoundError("Session not found");
+		}
+
+		await prisma.session.delete({ where: { id: session.id } });
 	}
 
 	async getCurrentUser(userId: string): Promise<PublicUser> {

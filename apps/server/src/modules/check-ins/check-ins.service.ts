@@ -1,8 +1,9 @@
-import { type Prisma, prisma, type UserRole } from "@voltaze/db";
+import { Prisma, prisma, type UserRole } from "@voltaze/db";
 import type { CheckInFilterInput, CreateCheckInInput } from "@voltaze/schema";
 
 import {
 	BadRequestError,
+	ConflictError,
 	ForbiddenError,
 	NotFoundError,
 } from "@/common/exceptions/app-error";
@@ -53,6 +54,16 @@ export class CheckInsService {
 
 		if (!attendee.event.userId || attendee.event.userId !== actor.userId) {
 			throw new ForbiddenError("You can only create check-ins for your events");
+		}
+	}
+
+	private ensureCanDeleteCheckIn(actor: CheckInActor) {
+		if (this.canManageAll(actor)) {
+			return;
+		}
+
+		if (actor.role === "USER") {
+			throw new ForbiddenError("Users cannot delete check-ins");
 		}
 	}
 
@@ -108,7 +119,55 @@ export class CheckInsService {
 
 		this.ensureCanCreateCheckIn(attendee, actor);
 
-		return prisma.checkIn.create({ data: input });
+		const existingCheckIn = await prisma.checkIn.findFirst({
+			where: {
+				attendeeId: input.attendeeId,
+				eventId: input.eventId,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		if (existingCheckIn) {
+			throw new ConflictError("Attendee already checked in for this event");
+		}
+
+		try {
+			return await prisma.checkIn.create({ data: input });
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2002") {
+					throw new ConflictError("Attendee already checked in for this event");
+				}
+
+				if (error.code === "P2003") {
+					throw new BadRequestError("Check-in references invalid relations");
+				}
+			}
+
+			throw error;
+		}
+	}
+
+	async delete(id: string, actor: CheckInActor) {
+		this.ensureCanDeleteCheckIn(actor);
+
+		const checkIn = await prisma.checkIn.findFirst({
+			where: {
+				id,
+				...this.buildAccessWhere(actor),
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		if (!checkIn) {
+			throw new NotFoundError("Check-in not found");
+		}
+
+		await prisma.checkIn.delete({ where: { id: checkIn.id } });
 	}
 }
 

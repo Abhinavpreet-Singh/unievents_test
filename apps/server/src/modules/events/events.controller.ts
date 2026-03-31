@@ -11,7 +11,10 @@ import {
 } from "@voltaze/schema";
 import type { Request, Response } from "express";
 
-import type { AuthenticatedRequest } from "@/common/types/auth-request";
+import type {
+	AuthenticatedRequest,
+	RequestWithAuth,
+} from "@/common/types/auth-request";
 
 import { eventsService } from "./events.service";
 
@@ -24,15 +27,31 @@ export class EventsController {
 		};
 	}
 
+	private getOptionalActor(req: Request) {
+		const authReq = req as RequestWithAuth;
+
+		if (!authReq.auth) {
+			return undefined;
+		}
+
+		return {
+			userId: authReq.auth.userId,
+			role: authReq.auth.role,
+		};
+	}
+
 	async list(req: Request, res: Response) {
 		const query = eventFilterSchema.parse(req.query);
-		const events = await eventsService.list(query);
+		const events = await eventsService.list(query, this.getOptionalActor(req));
 		res.status(200).json(events);
 	}
 
 	async getById(req: Request, res: Response) {
 		const params = idParamSchema.parse(req.params);
-		const event = await eventsService.getById(params.id);
+		const event = await eventsService.getById(
+			params.id,
+			this.getOptionalActor(req),
+		);
 		res.status(200).json(event);
 	}
 
@@ -53,12 +72,19 @@ export class EventsController {
 		res.status(200).json(event);
 	}
 
+	async delete(req: Request, res: Response) {
+		const params = idParamSchema.parse(req.params);
+		await eventsService.delete(params.id, this.getActor(req));
+		res.status(204).send();
+	}
+
 	async listTicketTiers(req: Request, res: Response) {
 		const params = eventTicketTierParamsSchema.parse(req.params);
 		const query = ticketTierFilterSchema.parse(req.query);
 		const ticketTiers = await eventsService.listTicketTiers(
 			params.eventId,
 			query,
+			this.getOptionalActor(req),
 		);
 		res.status(200).json(ticketTiers);
 	}
@@ -68,6 +94,7 @@ export class EventsController {
 		const ticketTier = await eventsService.getTicketTierById(
 			params.eventId,
 			params.tierId,
+			this.getOptionalActor(req),
 		);
 		res.status(200).json(ticketTier);
 	}

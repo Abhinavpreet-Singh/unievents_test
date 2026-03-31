@@ -1,3 +1,4 @@
+import { authSessionIdParamSchema } from "@voltaze/schema";
 import type { Request, Response } from "express";
 
 import type { AuthenticatedRequest } from "@/common/types/auth-request";
@@ -35,6 +36,28 @@ export class AuthController {
 
 	async logout(req: Request, res: Response) {
 		await authService.logout(req.body);
+		res.status(204).send();
+	}
+
+	async logoutAll(req: Request, res: Response) {
+		const authReq = req as AuthenticatedRequest;
+		await authService.logoutAll(authReq.auth.userId);
+		res.status(204).send();
+	}
+
+	async sessions(req: Request, res: Response) {
+		const authReq = req as AuthenticatedRequest;
+		const sessions = await authService.listSessions(
+			authReq.auth.userId,
+			authReq.auth.sessionId,
+		);
+		res.status(200).json(sessions);
+	}
+
+	async revokeSession(req: Request, res: Response) {
+		const authReq = req as AuthenticatedRequest;
+		const params = authSessionIdParamSchema.parse(req.params);
+		await authService.revokeSession(authReq.auth.userId, params.sessionId);
 		res.status(204).send();
 	}
 

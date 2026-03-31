@@ -19,6 +19,8 @@ type PassActor = {
 	role: UserRole;
 };
 
+type PassLifecycleStatus = "ACTIVE" | "USED" | "CANCELLED";
+
 export class PassesService {
 	private canManageAll(actor: PassActor) {
 		return actor.role === "ADMIN";
@@ -62,6 +64,31 @@ export class PassesService {
 
 		if (!entity.attendeeUserId || entity.attendeeUserId !== actor.userId) {
 			throw new ForbiddenError("You can only manage your own passes");
+		}
+	}
+
+	private ensureValidStatusTransition(
+		currentStatus: PassLifecycleStatus,
+		nextStatus: PassLifecycleStatus,
+	) {
+		if (currentStatus === "USED" && nextStatus !== "USED") {
+			throw new BadRequestError("Used passes cannot be reactivated");
+		}
+
+		if (currentStatus === "CANCELLED" && nextStatus !== "CANCELLED") {
+			throw new BadRequestError("Cancelled passes cannot be reactivated");
+		}
+	}
+
+	private ensureCanMutateRelations(passStatus: PassLifecycleStatus) {
+		if (passStatus !== "ACTIVE") {
+			throw new BadRequestError("Only active passes can be reassigned");
+		}
+	}
+
+	private ensureCanDeletePass(passStatus: PassLifecycleStatus) {
+		if (passStatus === "USED") {
+			throw new BadRequestError("Used passes cannot be deleted");
 		}
 	}
 
@@ -155,6 +182,10 @@ export class PassesService {
 				if (error.code === "P2002") {
 					throw new ConflictError("Pass already exists for this ticket");
 				}
+
+				if (error.code === "P2003") {
+					throw new BadRequestError("Pass references invalid relations");
+				}
 			}
 
 			throw error;
@@ -162,21 +193,48 @@ export class PassesService {
 	}
 
 	async update(id: string, input: UpdatePassInput, actor: PassActor) {
-		const pass = await this.getById(id, actor);
+		const pass = await prisma.pass.findFirst({
+			where: {
+				id,
+				...this.buildAccessWhere(actor),
+			},
+			select: {
+				id: true,
+				eventId: true,
+				attendeeId: true,
+				ticketId: true,
+				status: true,
+			},
+		});
+
+		if (!pass) {
+			throw new NotFoundError("Pass not found");
+		}
 
 		if (actor.role === "USER" && Object.keys(input).length > 0) {
 			throw new ForbiddenError("Users cannot update pass records");
 		}
 
+		const nextStatus = input.status ?? pass.status;
+		this.ensureValidStatusTransition(pass.status, nextStatus);
+
 		const nextEventId = input.eventId ?? pass.eventId;
 		const nextAttendeeId = input.attendeeId ?? pass.attendeeId;
 		const nextTicketId = input.ticketId ?? pass.ticketId;
-
-		if (
+		const relationChanged =
 			nextEventId !== pass.eventId ||
 			nextAttendeeId !== pass.attendeeId ||
-			nextTicketId !== pass.ticketId
-		) {
+			nextTicketId !== pass.ticketId;
+
+		if (relationChanged) {
+			this.ensureCanMutateRelations(pass.status);
+
+			if (nextStatus !== "ACTIVE") {
+				throw new BadRequestError(
+					"Pass reassignment is only allowed while pass remains active",
+				);
+			}
+
 			const [event, attendee, ticket] = await Promise.all([
 				prisma.event.findUnique({
 					where: { id: nextEventId },
@@ -228,7 +286,46 @@ export class PassesService {
 			);
 		}
 
-		return prisma.pass.update({ where: { id }, data: input });
+		try {
+			return await prisma.pass.update({ where: { id }, data: input });
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2002") {
+					throw new ConflictError("Pass already exists for this ticket");
+				}
+
+				if (error.code === "P2003") {
+					throw new BadRequestError("Pass references invalid relations");
+				}
+			}
+
+			throw error;
+		}
+	}
+
+	async delete(id: string, actor: PassActor) {
+		if (actor.role === "USER") {
+			throw new ForbiddenError("Users cannot delete pass records");
+		}
+
+		const pass = await prisma.pass.findFirst({
+			where: {
+				id,
+				...this.buildAccessWhere(actor),
+			},
+			select: {
+				id: true,
+				status: true,
+			},
+		});
+
+		if (!pass) {
+			throw new NotFoundError("Pass not found");
+		}
+
+		this.ensureCanDeletePass(pass.status);
+
+		await prisma.pass.delete({ where: { id: pass.id } });
 	}
 
 	async validate(input: ValidatePassInput, actor: PassActor) {

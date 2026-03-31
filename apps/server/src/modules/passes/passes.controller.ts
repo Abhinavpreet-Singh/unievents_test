@@ -54,6 +54,12 @@ export class PassesController {
 		const pass = await passesService.validate(body, this.getActor(req));
 		res.status(200).json(pass);
 	}
+
+	async delete(req: Request, res: Response) {
+		const params = idParamSchema.parse(req.params);
+		await passesService.delete(params.id, this.getActor(req));
+		res.status(204).send();
+	}
 }
 
 export const passesController = new PassesController();

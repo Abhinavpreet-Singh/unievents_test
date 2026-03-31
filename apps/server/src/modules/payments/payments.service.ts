@@ -19,6 +19,7 @@ type PaymentActor = {
 };
 
 type WebhookMappedStatus = "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
+type OrderSyncStatus = "PENDING" | "COMPLETED" | "CANCELLED";
 
 const CUID_REGEX = /^c[a-z0-9]{24}$/i;
 
@@ -75,6 +76,107 @@ export class PaymentsService {
 				},
 			},
 		};
+	}
+
+	private ensureMutableFieldsUnchanged(
+		input: UpdatePaymentInput,
+		current: {
+			orderId: string;
+			amount: number;
+			currency: string;
+			gateway: "RAZORPAY";
+		},
+	) {
+		if (input.orderId !== undefined && input.orderId !== current.orderId) {
+			throw new BadRequestError("Payment orderId cannot be changed");
+		}
+
+		if (input.amount !== undefined && input.amount !== current.amount) {
+			throw new BadRequestError("Payment amount cannot be changed");
+		}
+
+		if (
+			input.currency !== undefined &&
+			input.currency.toUpperCase() !== current.currency.toUpperCase()
+		) {
+			throw new BadRequestError("Payment currency cannot be changed");
+		}
+
+		if (input.gateway !== undefined && input.gateway !== current.gateway) {
+			throw new BadRequestError("Payment gateway cannot be changed");
+		}
+	}
+
+	private ensureValidStatusTransition(
+		currentStatus: WebhookMappedStatus,
+		nextStatus: WebhookMappedStatus,
+	) {
+		if (currentStatus === "REFUNDED" && nextStatus !== "REFUNDED") {
+			throw new BadRequestError("Refunded payments are immutable");
+		}
+
+		if (
+			currentStatus === "SUCCESS" &&
+			(nextStatus === "PENDING" || nextStatus === "FAILED")
+		) {
+			throw new BadRequestError(
+				"Successful payments can only remain successful or become refunded",
+			);
+		}
+	}
+
+	private async syncOrderStatusForPayment(
+		tx: Prisma.TransactionClient,
+		order: { id: string; status: OrderSyncStatus },
+		paymentStatus: WebhookMappedStatus,
+	) {
+		if (paymentStatus === "SUCCESS") {
+			if (order.status !== "COMPLETED") {
+				await tx.order.update({
+					where: { id: order.id },
+					data: { status: "COMPLETED" },
+				});
+			}
+
+			return;
+		}
+
+		if (paymentStatus === "REFUNDED") {
+			if (order.status !== "CANCELLED") {
+				await tx.order.update({
+					where: { id: order.id },
+					data: { status: "CANCELLED" },
+				});
+			}
+
+			return;
+		}
+
+		if (paymentStatus === "FAILED" && order.status !== "COMPLETED") {
+			if (order.status !== "CANCELLED") {
+				await tx.order.update({
+					where: { id: order.id },
+					data: { status: "CANCELLED" },
+				});
+			}
+		}
+	}
+
+	private ensureCanDeletePayment(payment: {
+		status: WebhookMappedStatus;
+		order: {
+			status: OrderSyncStatus;
+		};
+	}) {
+		if (payment.status === "SUCCESS" || payment.status === "REFUNDED") {
+			throw new BadRequestError("Settled payments cannot be deleted");
+		}
+
+		if (payment.order.status === "COMPLETED") {
+			throw new BadRequestError(
+				"Payments for completed orders cannot be deleted",
+			);
+		}
 	}
 
 	async list(input: PaymentFilterInput, actor: PaymentActor) {
@@ -148,6 +250,10 @@ export class PaymentsService {
 						"A payment already exists for this order or transaction",
 					);
 				}
+
+				if (error.code === "P2003") {
+					throw new BadRequestError("Payment references invalid relations");
+				}
 			}
 
 			throw error;
@@ -159,13 +265,109 @@ export class PaymentsService {
 			throw new ForbiddenError("Users cannot update payment records directly");
 		}
 
-		await this.getById(id, actor);
-		const { orderId: _ignoredOrderId, gatewayMeta, ...rest } = input;
-		const data = {
-			...rest,
-			gatewayMeta: gatewayMeta as Prisma.InputJsonValue | undefined,
-		};
-		return prisma.payment.update({ where: { id }, data });
+		const payment = await prisma.payment.findFirst({
+			where: {
+				id,
+				deletedAt: null,
+				...this.buildAccessWhere(actor),
+			},
+			select: {
+				id: true,
+				orderId: true,
+				amount: true,
+				currency: true,
+				gateway: true,
+				status: true,
+				order: {
+					select: {
+						id: true,
+						status: true,
+					},
+				},
+			},
+		});
+
+		if (!payment) {
+			throw new NotFoundError("Payment not found");
+		}
+
+		this.ensureMutableFieldsUnchanged(input, payment);
+
+		const nextStatus = input.status ?? payment.status;
+		this.ensureValidStatusTransition(payment.status, nextStatus);
+
+		const {
+			orderId: _ignoredOrderId,
+			amount: _ignoredAmount,
+			currency: _ignoredCurrency,
+			gateway: _ignoredGateway,
+			status: _ignoredStatus,
+			gatewayMeta,
+			...rest
+		} = input;
+
+		try {
+			return await prisma.$transaction(async (tx) => {
+				const updatedPayment = await tx.payment.update({
+					where: { id: payment.id },
+					data: {
+						...rest,
+						status: nextStatus,
+						gatewayMeta: gatewayMeta as Prisma.InputJsonValue | undefined,
+					},
+				});
+
+				await this.syncOrderStatusForPayment(tx, payment.order, nextStatus);
+
+				return updatedPayment;
+			});
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === "P2002") {
+					throw new ConflictError("Payment transaction ID already exists");
+				}
+
+				if (error.code === "P2003") {
+					throw new BadRequestError("Payment references invalid relations");
+				}
+			}
+
+			throw error;
+		}
+	}
+
+	async delete(id: string, actor: PaymentActor) {
+		if (actor.role === "USER") {
+			throw new ForbiddenError("Users cannot delete payment records");
+		}
+
+		const payment = await prisma.payment.findFirst({
+			where: {
+				id,
+				deletedAt: null,
+				...this.buildAccessWhere(actor),
+			},
+			select: {
+				id: true,
+				status: true,
+				order: {
+					select: {
+						status: true,
+					},
+				},
+			},
+		});
+
+		if (!payment) {
+			throw new NotFoundError("Payment not found");
+		}
+
+		this.ensureCanDeletePayment(payment);
+
+		await prisma.payment.update({
+			where: { id: payment.id },
+			data: { deletedAt: new Date() },
+		});
 	}
 
 	async handleWebhook(input: RazorpayWebhookInput) {
@@ -178,8 +380,26 @@ export class PaymentsService {
 		}
 
 		let payment = await prisma.payment.findFirst({
-			where: { transactionId },
-			include: { order: true },
+			where: {
+				transactionId,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				orderId: true,
+				amount: true,
+				currency: true,
+				gateway: true,
+				transactionId: true,
+				status: true,
+				deletedAt: true,
+				order: {
+					select: {
+						id: true,
+						status: true,
+					},
+				},
+			},
 		});
 
 		if (!payment && isCuid(orderReference)) {
@@ -188,12 +408,31 @@ export class PaymentsService {
 					orderId: orderReference,
 					deletedAt: null,
 				},
-				include: { order: true },
+				select: {
+					id: true,
+					orderId: true,
+					amount: true,
+					currency: true,
+					gateway: true,
+					transactionId: true,
+					status: true,
+					deletedAt: true,
+					order: {
+						select: {
+							id: true,
+							status: true,
+						},
+					},
+				},
 			});
 		}
 
 		if (!payment || payment.deletedAt) {
 			throw new BadRequestError("Payment transaction not found");
+		}
+
+		if (payment.gateway !== "RAZORPAY") {
+			throw new BadRequestError("Webhook gateway mismatch for payment");
 		}
 
 		if (payment.transactionId && payment.transactionId !== transactionId) {
@@ -238,26 +477,7 @@ export class PaymentsService {
 				},
 			});
 
-			if (mappedStatus === "SUCCESS") {
-				await tx.order.update({
-					where: { id: payment.orderId },
-					data: { status: "COMPLETED" },
-				});
-			}
-
-			if (mappedStatus === "REFUNDED") {
-				await tx.order.update({
-					where: { id: payment.orderId },
-					data: { status: "CANCELLED" },
-				});
-			}
-
-			if (mappedStatus === "FAILED" && payment.order.status !== "COMPLETED") {
-				await tx.order.update({
-					where: { id: payment.orderId },
-					data: { status: "CANCELLED" },
-				});
-			}
+			await this.syncOrderStatusForPayment(tx, payment.order, mappedStatus);
 
 			return updatedPayment;
 		});

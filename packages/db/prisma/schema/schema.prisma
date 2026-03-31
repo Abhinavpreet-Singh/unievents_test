@@ -343,6 +343,7 @@ model CheckIn {
   timestamp  DateTime      @default(now())
   method     CheckInMethod
 
+  @@unique([attendeeId, eventId])
   @@index([attendeeId])
   @@index([eventId])
   @@index([timestamp])
