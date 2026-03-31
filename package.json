@@ -33,8 +33,6 @@
 		"db:generate": "turbo -F @voltaze/db db:generate",
 		"db:migrate": "turbo -F @voltaze/db db:migrate",
 		"db:seed": "turbo -F @voltaze/db db:seed",
-		"db:seed:minimal": "turbo -F @voltaze/db db:seed:minimal",
-		"db:seed:large": "turbo -F @voltaze/db db:seed:large",
 		"check": "biome check --write .",
 		"prepare": "husky"
 	},

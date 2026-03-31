@@ -55,6 +55,8 @@ const createEventSchemaBase = eventSchema
 		createdAt: true,
 		updatedAt: true,
 		slug: true,
+		userId: true,
+		status: true,
 	})
 	.extend({
 		name: z.string().min(1).max(200),

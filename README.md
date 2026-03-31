@@ -55,22 +55,6 @@ bun run db:push
 bun run db:seed
 ```
 
-5. Optional seed modes:
-
-```bash
-# quick baseline data
-bun run db:seed:minimal
-
-# detailed + large demo dataset (default: 150 additional demo attendees)
-bun run db:seed:large
-
-# customize large-demo volume
-SEED_LARGE_COUNT=300 bun run db:seed:large
-
-# customize large-demo volume (PowerShell)
-$env:SEED_LARGE_COUNT="300"; bun run db:seed:large
-```
-
 Then, run the development server:
 
 ```bash
@@ -134,7 +118,5 @@ voltaze/
 - `bun run db:generate`: Generate database client/types
 - `bun run db:migrate`: Run database migrations
 - `bun run db:seed`: Seed database with starter data
-- `bun run db:seed:minimal`: Seed only baseline records
-- `bun run db:seed:large`: Seed detailed records plus large demo dataset
 - `bun run db:studio`: Open database studio UI
 - `bun run check`: Run Biome formatting and linting
