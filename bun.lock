@@ -52,6 +52,7 @@
       "name": "web",
       "version": "0.1.0",
       "dependencies": {
+        "@mantine/core": "^9.0.1",
         "@mantine/notifications": "^9.0.1",
         "@radix-ui/react-label": "^2.1.8",
         "@radix-ui/react-slot": "^1.2.4",
