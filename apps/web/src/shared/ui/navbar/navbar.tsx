@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ function getProfileInitial(
 
 export function Navbar() {
 	const router = useRouter();
+	const pathname = usePathname();
 	const { data: user } = useCurrentUser();
 	const logoutMutation = useLogout();
 	const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -103,7 +104,7 @@ export function Navbar() {
 			}
 
 			if (!isInsideLocationMenu) {
-				closeLocationMenu();
+				setIsLocationMenuOpen(false);
 			}
 		};
 
@@ -144,6 +145,7 @@ export function Navbar() {
 		}
 
 		params.set("location", "online");
+		params.set("mode", "ONLINE");
 		router.push(`/events?${params.toString()}`);
 		closeLocationMenu();
 	};
@@ -205,6 +207,8 @@ export function Navbar() {
 	}, []);
 
 	const profileInitial = getProfileInitial(user?.name, user?.email);
+	const alwaysShowSearch = pathname !== "/";
+	const isSearchVisible = alwaysShowSearch || showScrolledSearch;
 
 	return (
 		<header className="fixed top-0 right-0 left-0 z-50 border-slate-100 border-b bg-white/80 backdrop-blur-md">
@@ -230,7 +234,7 @@ export function Navbar() {
 
 				<div
 					className={`hidden flex-1 items-center justify-center transition-all duration-300 lg:flex ${
-						showScrolledSearch
+						isSearchVisible
 							? "pointer-events-auto translate-y-0 opacity-100"
 							: "pointer-events-none -translate-y-2 opacity-0"
 					}`}
@@ -468,7 +472,7 @@ export function Navbar() {
 						ref={mobileProfileMenuRef}
 						className="relative flex items-center gap-2 md:hidden"
 					>
-						{showScrolledSearch && (
+						{isSearchVisible && (
 							<Button
 								type="button"
 								onClick={() => window.location.assign("/events")}
@@ -572,7 +576,7 @@ export function Navbar() {
 					</div>
 				) : (
 					<div className="flex items-center gap-2 md:hidden">
-						{showScrolledSearch && (
+						{isSearchVisible && (
 							<Button
 								type="button"
 								onClick={() => window.location.assign("/events")}

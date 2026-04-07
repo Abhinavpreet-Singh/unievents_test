@@ -1,12 +1,18 @@
 "use client";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import type { EventFilterInput } from "@voltaze/schema";
-import { EventCard } from "../event-card/event-card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useEvents } from "../../hooks/use-events";
+import { EventCard } from "../event-card/event-card";
 
 interface AllEventsListProps {
-	searchParams: { search?: string; location?: string; category?: string };
+	searchParams: {
+		search?: string;
+		location?: string;
+		category?: string;
+		mode?: string;
+		type?: string;
+	};
 }
 
 export function AllEventsList({ searchParams }: AllEventsListProps) {
@@ -20,10 +26,32 @@ export function AllEventsList({ searchParams }: AllEventsListProps) {
 	if (searchParams.search) {
 		filters.search = searchParams.search;
 	}
-	
+
+	if (searchParams.location) {
+		const normalizedLocation = searchParams.location.trim().toLowerCase();
+
+		if (normalizedLocation === "online") {
+			filters.mode = "ONLINE";
+		} else {
+			filters.search = filters.search
+				? `${filters.search} ${searchParams.location}`
+				: searchParams.location;
+		}
+	}
+
 	if (searchParams.category) {
 		const categoryStr = searchParams.category.toLowerCase().replace("-", " ");
-		filters.search = filters.search ? `${filters.search} ${categoryStr}` : categoryStr;
+		filters.search = filters.search
+			? `${filters.search} ${categoryStr}`
+			: categoryStr;
+	}
+
+	if (searchParams.mode === "ONLINE" || searchParams.mode === "OFFLINE") {
+		filters.mode = searchParams.mode;
+	}
+
+	if (searchParams.type === "FREE" || searchParams.type === "PAID") {
+		filters.type = searchParams.type;
 	}
 
 	const { data, isLoading } = useEvents(filters);
@@ -31,9 +59,9 @@ export function AllEventsList({ searchParams }: AllEventsListProps) {
 
 	if (isLoading) {
 		return (
-			<div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+			<div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
 				{[...Array(6)].map((_, i) => (
-					<Skeleton key={i} className="h-[350px] w-full rounded-[24px]" />
+					<Skeleton key={i} className="h-[360px] w-full rounded-[24px]" />
 				))}
 			</div>
 		);
@@ -50,9 +78,9 @@ export function AllEventsList({ searchParams }: AllEventsListProps) {
 	}
 
 	return (
-		<div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+		<div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
 			{events.map((event) => (
-				<EventCard key={event.id} event={event} />
+				<EventCard key={event.id} event={event} className="h-full" />
 			))}
 		</div>
 	);

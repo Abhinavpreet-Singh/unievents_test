@@ -155,6 +155,7 @@ export class EventsService {
 		} = input;
 		const skip = (page - 1) * limit;
 		const accessWhere = this.buildReadAccessWhere(actor);
+		const trimmedSearch = search?.trim();
 
 		const where: Prisma.EventWhereInput = {
 			AND: [
@@ -168,11 +169,33 @@ export class EventsService {
 									lte: startDateTo,
 								}
 							: undefined,
-					name: search
-						? {
-								contains: search,
-								mode: "insensitive",
-							}
+					OR: trimmedSearch
+						? [
+								{
+									name: {
+										contains: trimmedSearch,
+										mode: "insensitive",
+									},
+								},
+								{
+									description: {
+										contains: trimmedSearch,
+										mode: "insensitive",
+									},
+								},
+								{
+									venueName: {
+										contains: trimmedSearch,
+										mode: "insensitive",
+									},
+								},
+								{
+									address: {
+										contains: trimmedSearch,
+										mode: "insensitive",
+									},
+								},
+							]
 						: undefined,
 				},
 			],

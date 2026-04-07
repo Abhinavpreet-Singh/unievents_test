@@ -53,6 +53,7 @@ export function EventHero() {
 
 		if (searchQuery) params.set("search", searchQuery);
 		params.set("location", "online");
+		params.set("mode", "ONLINE");
 
 		router.push(`/events?${params.toString()}`);
 		setIsLocationMenuOpen(false);
