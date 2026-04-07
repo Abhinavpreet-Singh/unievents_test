@@ -80,8 +80,6 @@ export function useLogin() {
  * Hook for Google login
  */
 export function useGoogleSignIn() {
-	const queryClient = useQueryClient();
-
 	return useMutation({
 		mutationFn: authService.signInWithGoogle,
 		onSuccess: () => {
@@ -89,7 +87,7 @@ export function useGoogleSignIn() {
 			// No session payload is returned to this callback in the current page context.
 		},
 		onError: (error: unknown) => {
-			notifications.show({
+			showNotification({
 				title: "Google sign-in failed",
 				message: getApiErrorMessage(
 					error,

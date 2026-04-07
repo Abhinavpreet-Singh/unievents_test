@@ -2,6 +2,7 @@
 
 import type { EventFilterInput } from "@voltaze/schema";
 import { ArrowRight, Calendar, MapPin, Users } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";

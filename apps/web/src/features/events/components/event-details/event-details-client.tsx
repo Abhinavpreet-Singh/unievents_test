@@ -1,27 +1,27 @@
 "use client";
 
-import { useEvent } from "../../hooks/use-events";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { 
-	Calendar, 
-	MapPin, 
-	Users, 
-	Info, 
-	Languages, 
-	Globe, 
-	UserCircle2, 
-	Mail, 
-	Navigation,
-	Footprints,
+import {
+	Calendar,
 	Car,
-	Train
+	Clock,
+	Footprints,
+	Globe,
+	Languages,
+	Mail,
+	MapPin,
+	Navigation,
+	Share2,
+	Train,
+	UserCircle2,
+	Users,
 } from "lucide-react";
-import { Navbar } from "@/shared/ui/navbar";
+import Link from "next/link";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
+import { Navbar } from "@/shared/ui/navbar";
+import { useEvent } from "../../hooks/use-events";
 
 export function EventDetailsClient({ slug }: { slug: string }) {
 	const { data: event, isLoading } = useEvent(slug);
@@ -29,11 +29,11 @@ export function EventDetailsClient({ slug }: { slug: string }) {
 
 	if (isLoading) {
 		return (
-			<div className="flex flex-col min-h-screen bg-white">
+			<div className="flex min-h-screen flex-col bg-white">
 				<Navbar />
-				<div className="pt-24 container mx-auto px-6 space-y-12">
-					<div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-						<div className="lg:col-span-2 space-y-8">
+				<div className="container mx-auto space-y-12 px-6 pt-24">
+					<div className="grid grid-cols-1 gap-12 lg:grid-cols-3">
+						<div className="space-y-8 lg:col-span-2">
 							<Skeleton className="h-[400px] w-full rounded-[24px]" />
 							<Skeleton className="h-16 w-3/4" />
 							<div className="grid grid-cols-2 gap-4">
@@ -53,15 +53,21 @@ export function EventDetailsClient({ slug }: { slug: string }) {
 
 	if (!event) {
 		return (
-			<div className="w-full bg-white min-h-screen flex flex-col">
+			<div className="flex min-h-screen w-full flex-col bg-white">
 				<Navbar />
-				<div className="container flex-1 flex items-center justify-center mx-auto px-6 pt-24 text-center">
+				<div className="container mx-auto flex flex-1 items-center justify-center px-6 pt-24 text-center">
 					<div>
-						<h2 className="text-4xl font-extrabold mb-4 text-[#030370]">Event not found</h2>
-						<p className="text-slate-500 mb-8 text-lg font-medium">
+						<h2 className="mb-4 font-extrabold text-4xl text-[#030370]">
+							Event not found
+						</h2>
+						<p className="mb-8 font-medium text-lg text-slate-500">
 							The event you are looking for does not exist or has been removed.
 						</p>
-						<Button asChild size="lg" className="rounded-full bg-[#030370] px-10">
+						<Button
+							asChild
+							size="lg"
+							className="rounded-full bg-[#030370] px-10"
+						>
 							<a href="/events">Browse all events</a>
 						</Button>
 					</div>
@@ -72,14 +78,18 @@ export function EventDetailsClient({ slug }: { slug: string }) {
 
 	const formatDate = (date: Date | string) => {
 		const d = new Date(date);
-		return d.toLocaleDateString("en-US", {
-			month: "long",
-			day: "numeric",
-		}) + " " + d.toLocaleTimeString("en-US", {
-			hour: "2-digit",
-			minute: "2-digit",
-			hour12: true,
-		});
+		return (
+			d.toLocaleDateString("en-US", {
+				month: "long",
+				day: "numeric",
+			}) +
+			" " +
+			d.toLocaleTimeString("en-US", {
+				hour: "2-digit",
+				minute: "2-digit",
+				hour12: true,
+			})
+		);
 	};
 
 	const formatDayMonth = (date: Date | string) => {
@@ -87,85 +97,106 @@ export function EventDetailsClient({ slug }: { slug: string }) {
 		const day = d.getDate();
 		const month = d.toLocaleDateString("en-US", { month: "short" });
 		const year = d.getFullYear().toString().slice(-2);
-		
+
 		// Add ordinal suffix (st, nd, rd, th)
 		const suffix = (day: number) => {
-			if (day > 3 && day < 21) return 'th';
+			if (day > 3 && day < 21) return "th";
 			switch (day % 10) {
-				case 1: return "st";
-				case 2: return "nd";
-				case 3: return "rd";
-				default: return "th";
+				case 1:
+					return "st";
+				case 2:
+					return "nd";
+				case 3:
+					return "rd";
+				default:
+					return "th";
 			}
 		};
-		
+
 		return `${month} ${day}${suffix(day)}'${year}`;
 	};
 
 	const TABS = ["Details", "Venue & Timeline", "Reviews", "FAQ", "Eligibility"];
 
 	return (
-		<div className="w-full bg-white min-h-screen pb-24">
+		<div className="min-h-screen w-full bg-white pb-24">
 			<Navbar />
-			
-			<div className="pt-24 container mx-auto px-6 lg:px-12 max-w-[1400px]">
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-					
+
+			<div className="container mx-auto max-w-[1400px] px-6 pt-24 lg:px-12">
+				<div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-3">
 					{/* LEFT COLUMN: Overview */}
-					<div className="lg:col-span-2 space-y-8">
+					<div className="space-y-8 lg:col-span-2">
 						{/* Main Event Image */}
 						<div className="relative aspect-[16/10] w-full overflow-hidden rounded-[24px] shadow-lg">
 							<div
-								className="h-full w-full bg-cover bg-center"
+								className="h-full w-full bg-center bg-cover"
 								role="img"
 								aria-label={event.name}
-								style={{ backgroundImage: `url(${event.coverUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&q=80"})` }}
+								style={{
+									backgroundImage: `url(${event.coverUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&q=80"})`,
+								}}
 							/>
 						</div>
 
 						<div>
-							<h1 className="text-5xl lg:text-[76px] font-extrabold text-black tracking-tight leading-[1.05] mb-10">
+							<h1 className="mb-10 font-extrabold text-5xl text-black leading-[1.05] tracking-tight lg:text-[76px]">
 								{event.name}
 							</h1>
-							
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								<div className="flex items-center gap-4 p-5 rounded-[20px] border border-orange-500 bg-white">
+
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								<div className="flex items-center gap-4 rounded-[20px] border border-orange-500 bg-white p-5">
 									<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-										<Calendar className="w-6 h-6" />
+										<Calendar className="h-6 w-6" />
 									</div>
 									<div className="flex flex-col">
-										<span className="font-bold text-orange-600 text-lg">{formatDate(event.startDate)}</span>
-										<span className="text-slate-400 font-semibold text-sm">Scheduled Date</span>
+										<span className="font-bold text-lg text-orange-600">
+											{formatDate(event.startDate)}
+										</span>
+										<span className="font-semibold text-slate-400 text-sm">
+											Scheduled Date
+										</span>
 									</div>
 								</div>
 
-								<div className="flex items-center gap-4 p-5 rounded-[20px] border border-orange-500 bg-white">
+								<div className="flex items-center gap-4 rounded-[20px] border border-orange-500 bg-white p-5">
 									<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-										<MapPin className="w-6 h-6" />
+										<MapPin className="h-6 w-6" />
 									</div>
 									<div className="flex flex-col">
-										<span className="font-bold text-orange-600 text-lg">Bangalore, India</span>
-										<span className="text-slate-400 font-semibold text-sm">Location</span>
+										<span className="font-bold text-lg text-orange-600">
+											Bangalore, India
+										</span>
+										<span className="font-semibold text-slate-400 text-sm">
+											Location
+										</span>
 									</div>
 								</div>
 
-								<div className="flex items-center gap-4 p-5 rounded-[20px] border border-orange-500 bg-white">
+								<div className="flex items-center gap-4 rounded-[20px] border border-orange-500 bg-white p-5">
 									<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-										<Users className="w-6 h-6" />
+										<Users className="h-6 w-6" />
 									</div>
 									<div className="flex flex-col">
-										<span className="font-bold text-orange-600 text-lg">150 Available Seats</span>
-										<span className="text-slate-400 font-semibold text-sm">Capacity</span>
+										<span className="font-bold text-lg text-orange-600">
+											150 Available Seats
+										</span>
+										<span className="font-semibold text-slate-400 text-sm">
+											Capacity
+										</span>
 									</div>
 								</div>
 
-								<div className="flex items-center gap-4 p-5 rounded-[20px] border border-orange-500 bg-white">
+								<div className="flex items-center gap-4 rounded-[20px] border border-orange-500 bg-white p-5">
 									<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-										<Globe className="w-6 h-6" />
+										<Globe className="h-6 w-6" />
 									</div>
 									<div className="flex flex-col">
-										<span className="font-bold text-orange-600 text-lg">Offline</span>
-										<span className="text-slate-400 font-semibold text-sm">Event Mode</span>
+										<span className="font-bold text-lg text-orange-600">
+											Offline
+										</span>
+										<span className="font-semibold text-slate-400 text-sm">
+											Event Mode
+										</span>
 									</div>
 								</div>
 							</div>
@@ -175,121 +206,170 @@ export function EventDetailsClient({ slug }: { slug: string }) {
 					{/* RIGHT COLUMN: Action Sidebar */}
 					<div className="space-y-6 lg:sticky lg:top-24">
 						{/* Registration Card */}
-						<div className="rounded-[32px] bg-white p-8 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.1)] border border-slate-100 flex flex-col">
-							<div className="flex justify-between items-start mb-8">
+						<div className="flex flex-col rounded-[32px] border border-slate-100 bg-white p-8 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.1)]">
+							<div className="mb-8 flex items-start justify-between">
 								<div className="flex flex-col">
-									<span className="text-slate-500 font-semibold text-base mb-1">Registration Fee</span>
-									<span className="text-3xl font-extrabold text-black">₹399</span>
+									<span className="mb-1 font-semibold text-base text-slate-500">
+										Registration Fee
+									</span>
+									<span className="font-extrabold text-3xl text-black">
+										₹399
+									</span>
 								</div>
 								<div className="flex flex-col items-end">
-									<span className="text-slate-500 font-semibold text-base mb-1">Date</span>
-									<span className="text-2xl font-extrabold text-black">{formatDayMonth(event.startDate)}</span>
+									<span className="mb-1 font-semibold text-base text-slate-500">
+										Date
+									</span>
+									<span className="font-extrabold text-2xl text-black">
+										{formatDayMonth(event.startDate)}
+									</span>
 								</div>
 							</div>
 
-							<div className="space-y-5 mb-10">
+							<div className="mb-10 space-y-5">
 								<div className="flex items-center gap-3">
-									<MapPin className="w-5 h-5 text-[#030370]" />
-									<span className="font-bold text-slate-700 text-sm">Cafe, Indiranagar, Bangalore</span>
+									<MapPin className="h-5 w-5 text-[#030370]" />
+									<span className="font-bold text-slate-700 text-sm">
+										Cafe, Indiranagar, Bangalore
+									</span>
 								</div>
 								<div className="flex items-center gap-3">
-									<Clock className="w-5 h-5 text-[#030370]" />
-									<span className="font-bold text-slate-700 text-sm">Time: 2:00 - 5:00 PM</span>
+									<Clock className="h-5 w-5 text-[#030370]" />
+									<span className="font-bold text-slate-700 text-sm">
+										Time: 2:00 - 5:00 PM
+									</span>
 								</div>
 								<div className="flex items-center gap-3">
-									<Languages className="w-5 h-5 text-[#030370]" />
-									<span className="font-bold text-slate-700 text-sm">English</span>
+									<Languages className="h-5 w-5 text-[#030370]" />
+									<span className="font-bold text-slate-700 text-sm">
+										English
+									</span>
 								</div>
 								<div className="flex items-center gap-3">
-									<Globe className="w-5 h-5 text-[#030370]" />
-									<span className="font-bold text-slate-700 text-sm">Offline</span>
+									<Globe className="h-5 w-5 text-[#030370]" />
+									<span className="font-bold text-slate-700 text-sm">
+										Offline
+									</span>
 								</div>
 								<div className="flex items-center gap-3">
-									<Users className="w-5 h-5 text-[#030370]" />
-									<span className="font-bold text-slate-700 text-sm">13+ Years</span>
+									<Users className="h-5 w-5 text-[#030370]" />
+									<span className="font-bold text-slate-700 text-sm">
+										13+ Years
+									</span>
 								</div>
 							</div>
 
-							<Button className="w-full h-16 rounded-[24px] bg-[#070190] hover:bg-[#030370] text-xl font-bold text-white transition-all hover:scale-[1.02] active:scale-95 shadow-[0_12px_24px_rgba(7,1,144,0.3)]">
+							<Button className="h-16 w-full rounded-[24px] bg-[#070190] font-bold text-white text-xl shadow-[0_12px_24px_rgba(7,1,144,0.3)] transition-all hover:scale-[1.02] hover:bg-[#030370] active:scale-95">
 								Book Now
 							</Button>
-							<span className="text-slate-400 text-[10px] text-center mt-3 font-semibold uppercase tracking-wider">
+							<span className="mt-3 text-center font-semibold text-[10px] text-slate-400 uppercase tracking-wider">
 								secure checkout powered by razorpay
 							</span>
 						</div>
 
 						{/* Organizer Mini Card */}
-						<div className="flex items-center gap-4 p-5 rounded-[24px] border border-slate-200 bg-white">
-							<div className="h-16 w-16 rounded-2xl bg-blue-100/50 flex items-center justify-center overflow-hidden">
-								<UserCircle2 className="w-10 h-10 text-blue-600/40" />
+						<div className="flex items-center gap-4 rounded-[24px] border border-slate-200 bg-white p-5">
+							<div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-blue-100/50">
+								<UserCircle2 className="h-10 w-10 text-blue-600/40" />
 							</div>
 							<div className="flex flex-col">
-								<span className="text-xl font-bold text-black">Event Organizer Name</span>
-								<span className="text-slate-400 font-semibold text-sm">Verified Organizer</span>
+								<span className="font-bold text-black text-xl">
+									Event Organizer Name
+								</span>
+								<span className="font-semibold text-slate-400 text-sm">
+									Verified Organizer
+								</span>
 							</div>
 						</div>
 					</div>
 				</div>
 
 				<section className="mt-24">
-					<h2 className="text-4xl font-extrabold text-black mb-8 uppercase tracking-tight">Manifesto</h2>
-					<div className="rounded-[24px] border border-blue-200 bg-white overflow-hidden shadow-sm">
-						<div className="flex overflow-x-auto border-b border-blue-100 px-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+					<h2 className="mb-8 font-extrabold text-4xl text-black uppercase tracking-tight">
+						Manifesto
+					</h2>
+					<div className="overflow-hidden rounded-[24px] border border-blue-200 bg-white shadow-sm">
+						<div className="flex overflow-x-auto border-blue-100 border-b px-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 							{TABS.map((tab) => (
 								<button
+									type="button"
 									key={tab}
 									onClick={() => setActiveTab(tab)}
 									className={cn(
-										"px-8 py-5 font-bold text-lg transition-all relative shrink-0",
-										activeTab === tab ? "text-blue-600" : "text-slate-500 hover:text-slate-800"
+										"relative shrink-0 px-8 py-5 font-bold text-lg transition-all",
+										activeTab === tab
+											? "text-blue-600"
+											: "text-slate-500 hover:text-slate-800",
 									)}
 								>
 									{tab}
 									{activeTab === tab && (
-										<div className="absolute bottom-0 left-4 right-4 h-1 bg-blue-600 rounded-full" />
+										<div className="absolute right-4 bottom-0 left-4 h-1 rounded-full bg-blue-600" />
 									)}
 								</button>
 							))}
 						</div>
-						<div className="p-8 md:p-12 min-h-[400px] flex items-center justify-center text-center">
+						<div className="flex min-h-[400px] items-center justify-center p-8 text-center md:p-12">
 							{activeTab === "Details" ? (
-								<div className="max-w-4xl prose prose-slate">
-									<p className="text-slate-600 font-medium text-xl leading-relaxed whitespace-pre-wrap">
+								<div className="prose prose-slate max-w-4xl">
+									<p className="whitespace-pre-wrap font-medium text-slate-600 text-xl leading-relaxed">
 										{event.description}
 									</p>
 								</div>
 							) : (
-								<div className="text-3xl font-bold text-black opacity-80">{activeTab}</div>
+								<div className="font-bold text-3xl text-black opacity-80">
+									{activeTab}
+								</div>
 							)}
 						</div>
 					</div>
 				</section>
 
 				<section className="mt-24">
-					<h2 className="text-4xl font-extrabold text-black mb-8 uppercase tracking-tight">How to reach this spot</h2>
-					<div className="rounded-[32px] border border-slate-200 bg-white overflow-hidden shadow-md">
-						<div 
-							className="h-[400px] w-full bg-slate-100 flex items-center justify-center relative bg-cover bg-center"
-							style={{ backgroundImage: `url(https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=1200&q=80)` }}
+					<h2 className="mb-8 font-extrabold text-4xl text-black uppercase tracking-tight">
+						How to reach this spot
+					</h2>
+					<div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-md">
+						<div
+							className="relative flex h-[400px] w-full items-center justify-center bg-center bg-cover bg-slate-100"
+							style={{
+								backgroundImage:
+									"url(https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=1200&q=80)",
+							}}
 						>
 							<div className="absolute inset-0 bg-black/5" />
-							<div className="relative bg-white p-4 rounded-xl shadow-2xl flex flex-col gap-1 max-w-[280px]">
-								<span className="font-bold text-slate-800 text-xs">3275, Ground Floor, HAL 2nd Stage,</span>
-								<span className="font-bold text-slate-800 text-xs">12th Main Road, Indiranagar,</span>
-								<span className="font-bold text-slate-800 text-xs">Bangalore-560008, Karnataka</span>
-								<div className="absolute -bottom-2 left-6 w-4 h-4 bg-white rotate-45" />
+							<div className="relative flex max-w-[280px] flex-col gap-1 rounded-xl bg-white p-4 shadow-2xl">
+								<span className="font-bold text-slate-800 text-xs">
+									3275, Ground Floor, HAL 2nd Stage,
+								</span>
+								<span className="font-bold text-slate-800 text-xs">
+									12th Main Road, Indiranagar,
+								</span>
+								<span className="font-bold text-slate-800 text-xs">
+									Bangalore-560008, Karnataka
+								</span>
+								<div className="absolute -bottom-2 left-6 h-4 w-4 rotate-45 bg-white" />
 							</div>
-							<MapPin className="absolute bottom-1/2 left-1/2 -translate-x-1/2 -translate-y-[20%] w-12 h-12 text-red-600 drop-shadow-xl fill-current" />
+							<MapPin className="absolute bottom-1/2 left-1/2 h-12 w-12 -translate-x-1/2 -translate-y-[20%] fill-current text-red-600 drop-shadow-xl" />
 						</div>
-						<div className="flex items-center justify-center gap-12 py-6 bg-white border-t border-slate-100">
-							<button className="flex items-center gap-2 font-bold text-blue-600 transition-colors hover:text-blue-800">
-								<Footprints className="w-5 h-5" /> Walking
+						<div className="flex items-center justify-center gap-12 border-slate-100 border-t bg-white py-6">
+							<button
+								type="button"
+								className="flex items-center gap-2 font-bold text-blue-600 transition-colors hover:text-blue-800"
+							>
+								<Footprints className="h-5 w-5" /> Walking
 							</button>
-							<button className="flex items-center gap-2 font-bold text-blue-600 transition-colors hover:text-blue-800">
-								<Car className="w-5 h-5" /> Drive
+							<button
+								type="button"
+								className="flex items-center gap-2 font-bold text-blue-600 transition-colors hover:text-blue-800"
+							>
+								<Car className="h-5 w-5" /> Drive
 							</button>
-							<button className="flex items-center gap-2 font-bold text-blue-600 transition-colors hover:text-blue-800">
-								<Train className="w-5 h-5" /> Metro
+							<button
+								type="button"
+								className="flex items-center gap-2 font-bold text-blue-600 transition-colors hover:text-blue-800"
+							>
+								<Train className="h-5 w-5" /> Metro
 							</button>
 						</div>
 					</div>
@@ -297,34 +377,37 @@ export function EventDetailsClient({ slug }: { slug: string }) {
 
 				{/* ORGANIZER INFO SECTION */}
 				<section className="mt-24">
-					<h2 className="text-4xl font-extrabold text-black mb-8 uppercase tracking-tight">Organizer Info</h2>
-					<div className="w-full rounded-[40px] p-10 md:p-16 bg-gradient-to-br from-[#1a1a5e] to-[#030330] text-white shadow-2xl relative overflow-hidden">
-						<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 relative z-10">
+					<h2 className="mb-8 font-extrabold text-4xl text-black uppercase tracking-tight">
+						Organizer Info
+					</h2>
+					<div className="relative w-full overflow-hidden rounded-[40px] bg-gradient-to-br from-[#1a1a5e] to-[#030330] p-10 text-white shadow-2xl md:p-16">
+						<div className="relative z-10 grid grid-cols-1 gap-12 lg:grid-cols-2">
 							<div className="space-y-8">
-								<h3 className="text-4xl font-extrabold tracking-tight">Roarclub Events</h3>
-								<p className="text-slate-300 font-medium text-lg leading-relaxed max-w-xl">
-									Welcome to The Vibrant Heart of Our Campus, Where
-									High-Energy Events, Digital Culture, and Exciting
-									Hackathons Come To Life! Join Us To Connect,
-									Innovate, And Celebrate Creativity in A Dynamic
-									Environment.
+								<h3 className="font-extrabold text-4xl tracking-tight">
+									Roarclub Events
+								</h3>
+								<p className="max-w-xl font-medium text-lg text-slate-300 leading-relaxed">
+									Welcome to The Vibrant Heart of Our Campus, Where High-Energy
+									Events, Digital Culture, and Exciting Hackathons Come To Life!
+									Join Us To Connect, Innovate, And Celebrate Creativity in A
+									Dynamic Environment.
 								</p>
-								
+
 								<div className="space-y-6">
-									<h4 className="text-xl font-bold uppercase tracking-widest text-slate-100 flex items-center gap-3">
+									<h4 className="flex items-center gap-3 font-bold text-slate-100 text-xl uppercase tracking-widest">
 										Hosted By <div className="h-0.5 w-12 bg-white/30" />
 									</h4>
 									<div className="flex flex-wrap gap-8">
 										{[
 											{ name: "Abhinav Mishra", role: "Host" },
 											{ name: "Ashish Solanki", role: "Manager" },
-											{ name: "Samay Raina", role: "Co-Host" }
+											{ name: "Samay Raina", role: "Co-Host" },
 										].map((person, i) => (
 											<div key={i} className="flex flex-col items-center gap-2">
-												<div className="h-20 w-20 rounded-[20px] bg-blue-100/20 shadow-inner flex items-center justify-center">
-													<UserCircle2 className="w-12 h-12 text-white/50" />
+												<div className="flex h-20 w-20 items-center justify-center rounded-[20px] bg-blue-100/20 shadow-inner">
+													<UserCircle2 className="h-12 w-12 text-white/50" />
 												</div>
-												<span className="text-center font-bold text-xs whitespace-pre-wrap max-w-[80px]">
+												<span className="max-w-[80px] whitespace-pre-wrap text-center font-bold text-xs">
 													{person.name}
 												</span>
 											</div>
@@ -335,66 +418,86 @@ export function EventDetailsClient({ slug }: { slug: string }) {
 
 							<div className="flex flex-wrap gap-12 lg:justify-center">
 								<div className="space-y-5">
-									<h4 className="text-xl font-bold mb-6">Navigation</h4>
-									<ul className="space-y-4 text-slate-300 font-semibold text-sm">
+									<h4 className="mb-6 font-bold text-xl">Navigation</h4>
+									<ul className="space-y-4 font-semibold text-slate-300 text-sm">
 										<li>
-											<Link 
+											<Link
 												// biome-ignore lint/suspicious/noExplicitAny: Workaround for Next.js 15 static route typing
-												href={"/events" as any} 
-												className="hover:text-white cursor-pointer transition-colors"
+												href={"/events" as any}
+												className="cursor-pointer transition-colors hover:text-white"
 											>
 												All Events
 											</Link>
 										</li>
-										<li className="hover:text-white cursor-pointer transition-colors">Venues</li>
-										<li className="hover:text-white cursor-pointer transition-colors">Safety Policy</li>
-										<li className="hover:text-white cursor-pointer transition-colors">Ticket FAQ</li>
+										<li className="cursor-pointer transition-colors hover:text-white">
+											Venues
+										</li>
+										<li className="cursor-pointer transition-colors hover:text-white">
+											Safety Policy
+										</li>
+										<li className="cursor-pointer transition-colors hover:text-white">
+											Ticket FAQ
+										</li>
 									</ul>
 								</div>
 								<div className="space-y-5">
-									<h4 className="text-xl font-bold mb-6">Support</h4>
-									<ul className="space-y-4 text-slate-300 font-semibold text-sm">
-										<li className="hover:text-white cursor-pointer transition-colors">Help Centre</li>
+									<h4 className="mb-6 font-bold text-xl">Support</h4>
+									<ul className="space-y-4 font-semibold text-slate-300 text-sm">
+										<li className="cursor-pointer transition-colors hover:text-white">
+											Help Centre
+										</li>
 										<li>
-											<Link 
+											<Link
 												// biome-ignore lint/suspicious/noExplicitAny: Workaround for Next.js 15 static route typing
-												href={"/refund" as any} 
-												className="hover:text-white cursor-pointer transition-colors"
+												href={"/refund" as any}
+												className="cursor-pointer transition-colors hover:text-white"
 											>
 												Refund Policy
 											</Link>
 										</li>
 										<li>
-											<Link 
+											<Link
 												// biome-ignore lint/suspicious/noExplicitAny: Workaround for Next.js 15 static route typing
-												href={"/privacy" as any} 
-												className="hover:text-white cursor-pointer transition-colors"
+												href={"/privacy" as any}
+												className="cursor-pointer transition-colors hover:text-white"
 											>
 												Privacy Policy
 											</Link>
 										</li>
 										<li>
-											<Link 
+											<Link
 												// biome-ignore lint/suspicious/noExplicitAny: Workaround for Next.js 15 static route typing
-												href={"/terms" as any} 
-												className="hover:text-white cursor-pointer transition-colors"
+												href={"/terms" as any}
+												className="cursor-pointer transition-colors hover:text-white"
 											>
 												Terms of Service
 											</Link>
 										</li>
 									</ul>
 								</div>
-								
-								<div className="flex flex-col gap-4 w-full md:w-auto">
+
+								<div className="flex w-full flex-col gap-4 md:w-auto">
 									<div className="flex gap-4">
-										<Button variant="ghost" size="icon" className="h-14 w-14 rounded-2xl bg-white/10 hover:bg-white/20 border-white/10">
-											<Share2 className="w-8 h-8" />
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-14 w-14 rounded-2xl border-white/10 bg-white/10 hover:bg-white/20"
+										>
+											<Share2 className="h-8 w-8" />
 										</Button>
-										<Button variant="ghost" size="icon" className="h-14 w-14 rounded-2xl bg-white/10 hover:bg-white/20 border-white/10">
-											<Mail className="w-8 h-8" />
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-14 w-14 rounded-2xl border-white/10 bg-white/10 hover:bg-white/20"
+										>
+											<Mail className="h-8 w-8" />
 										</Button>
-										<Button variant="ghost" size="icon" className="h-14 w-14 rounded-2xl bg-white/10 hover:bg-white/20 border-white/10">
-											<Navigation className="w-8 h-8" />
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-14 w-14 rounded-2xl border-white/10 bg-white/10 hover:bg-white/20"
+										>
+											<Navigation className="h-8 w-8" />
 										</Button>
 									</div>
 								</div>
