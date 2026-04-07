@@ -194,42 +194,44 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
 							<div className="h-5" />
 						</div>
 
-						<div className="relative flex flex-col justify-center px-5 py-6 pt-16 pb-7 sm:px-8 sm:pt-16 md:px-10">
-							<div className="absolute top-16 right-4 inline-flex rounded-full border border-[#d8e1fb] bg-[#f5f8ff] p-1 shadow-sm sm:top-16">
-								<Link
-									href="/signup"
-									className={`rounded-full px-5 py-2 font-semibold text-sm transition-colors ${
-										mode === "signup" || mode === "register"
-											? "bg-[#1e43bf] text-white"
-											: "text-[#1e43bf] hover:bg-white"
-									}`}
-								>
-									Sign Up
-								</Link>
-								<Link
-									href="/login"
-									className={`rounded-full px-5 py-2 font-semibold text-sm transition-colors ${
-										mode === "login"
-											? "bg-[#1e43bf] text-white"
-											: "text-[#1e43bf] hover:bg-white"
-									}`}
-								>
-									Log In
-								</Link>
-							</div>
+						<div className="relative flex flex-col justify-center px-5 py-6 pt-32 pb-7 sm:px-8 sm:pt-32 md:px-10 md:pt-16">
+							<div className="absolute top-14 right-5 left-5 flex items-center justify-between sm:right-8 sm:left-8 md:right-10 md:left-10">
+								<div className="flex items-center gap-2 md:hidden">
+									<Image
+										src="/assets/logo.webp"
+										alt="UniEvent logo"
+										width={28}
+										height={28}
+										className="h-7 w-7 object-contain"
+										priority
+									/>
+									<span className="font-bold text-[#112c8f] text-lg">
+										UniEvent
+									</span>
+								</div>
 
-							<div className="mb-5 flex items-center gap-2 md:hidden">
-								<Image
-									src="/assets/logo.webp"
-									alt="UniEvent logo"
-									width={28}
-									height={28}
-									className="h-7 w-7 object-contain"
-									priority
-								/>
-								<span className="font-bold text-[#112c8f] text-lg">
-									UniEvent
-								</span>
+								<div className="ml-auto inline-flex rounded-full border border-[#d8e1fb] bg-[#f5f8ff] p-1 shadow-sm">
+									<Link
+										href="/signup"
+										className={`rounded-full px-5 py-2 font-semibold text-sm transition-colors ${
+											mode === "signup" || mode === "register"
+												? "bg-[#1e43bf] text-white"
+												: "text-[#1e43bf] hover:bg-white"
+										}`}
+									>
+										Sign Up
+									</Link>
+									<Link
+										href="/login"
+										className={`rounded-full px-5 py-2 font-semibold text-sm transition-colors ${
+											mode === "login"
+												? "bg-[#1e43bf] text-white"
+												: "text-[#1e43bf] hover:bg-white"
+										}`}
+									>
+										Log In
+									</Link>
+								</div>
 							</div>
 
 							<h1 className="mb-4 font-bold text-3xl text-slate-950">
